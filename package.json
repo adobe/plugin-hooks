@@ -1,0 +1,34 @@
+{
+  "name": "@adobe/plugin-hooks",
+  "version": "0.1.0",
+  "publishConfig": {
+		"access": "public"
+	},
+  "description": "Adobe API Mesh Hooks Plugin",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@graphql-mesh/utils": "^0.43.4",
+    "await-timeout": "^1.1.1",
+    "lru-cache": "^7.14.1",
+    "make-cancellable-promise": "^1.1.0",
+    "node-fetch": "^2"
+  },
+  "devDependencies": {
+    "@envelop/core": "^3.0.4",
+    "eslint": "^8.31.0",
+    "graphql": "^16.6.0"
+  },
+  "peerDependencies": {
+    "@envelop/core": "*",
+    "graphql": "*"
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "author": "Adobe Inc.",
+  "license": "Apache-2.0"
+}
