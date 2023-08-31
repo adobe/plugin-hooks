@@ -2,8 +2,8 @@
   "name": "@adobe/plugin-hooks",
   "version": "0.1.0",
   "publishConfig": {
-		"access": "public"
-	},
+    "access": "public"
+  },
   "description": "Adobe API Mesh Hooks Plugin",
   "main": "index.js",
   "scripts": {
@@ -21,7 +21,8 @@
   "devDependencies": {
     "@envelop/core": "^3.0.4",
     "eslint": "^8.31.0",
-    "graphql": "^16.6.0"
+    "graphql": "^16.6.0",
+    "jest": "^29.6.4"
   },
   "peerDependencies": {
     "@envelop/core": "*",
