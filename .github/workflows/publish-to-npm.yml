@@ -4,14 +4,10 @@ on:
     types: [closed]
     branches:
       - main
-  push:
-    branches:
-      - main
 jobs:
   npm-publish:
     name: npm-publish
-    needs: build
-    if: github.repository == 'adobe/plugin-hooks'
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -19,10 +15,10 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
+      - name: Install dependencies
+        run: npm install
       - name: Publish if version has been updated
-        uses: mkiki/npm-publish-action@c4315ef5790b7bcec2cbb75b34e37681a409d78d
+        uses: JS-DevTools/npm-publish@v1
         with:
           access: "public"
-          commit_pattern: '^Release (\S+)'
-        env:
           NPM_AUTH_TOKEN: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
