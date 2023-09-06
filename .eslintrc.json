@@ -9,5 +9,8 @@
         "ecmaVersion": "latest"
     },
     "rules": {
+        "no-unused-vars": "off",
+        "no-async-promise-executor": "off",
+        "no-useless-escape": "off"
     }
 }

@@ -1,8 +1,6 @@
 name: lint-build-test
 on:
   push:
-    branches:
-      - main
   pull_request:
     types: [closed, opened, edited]
     branches:
