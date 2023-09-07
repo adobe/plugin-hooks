@@ -21,4 +21,4 @@ jobs:
         uses: JS-DevTools/npm-publish@v1
         with:
           access: "public"
-          NPM_AUTH_TOKEN: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
+          token: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
