@@ -1,23 +1,24 @@
 name: npm-publish
 on:
-  push:
+  pull_request:
+    types: [closed]
     branches:
       - main
 jobs:
   npm-publish:
     name: npm-publish
-    if: github.repository == 'adobe/plugin-hooks'
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@main
+      - uses: actions/checkout@v3
       - name: Set up Node.js
-        uses: actions/setup-node@main
+        uses: actions/setup-node@v3
         with:
           node-version: 18
+      - name: Install dependencies
+        run: npm install
       - name: Publish if version has been updated
-        uses: mkiki/npm-publish-action@c4315ef5790b7bcec2cbb75b34e37681a409d78d
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      NPM_AUTH_TOKEN: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
-      NPM_AUTH: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
+        uses: JS-DevTools/npm-publish@v1
+        with:
+          access: "public"
+          token: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
