@@ -1,0 +1,25 @@
+{
+    "templateVersion": "0.2",
+    "product": {
+        "name": "API Mesh",
+        "description": "Plugin hooks. Hooks allow you to invoke a composable local or remote function on a targeted node."
+    },
+    "contacts": {
+        "team": {
+            "name": "Star-Griffins",
+            "DL": "Grp-Star-Griffins",
+            "slackChannel": "star-griffins"
+        }
+    },
+    "ticketTracker": {
+        "functionalJiraQueue": {
+            "projectKey": "CEXT",
+            "component": ""
+        },
+        "securityJiraQueue": {
+            "projectKey": "MAGREQ",
+            "component": "MAGREQ/Magento Extensibility"
+        }
+    },
+    "productionCodeBranches": ["main"]
+} 
