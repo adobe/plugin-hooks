@@ -9,6 +9,7 @@ the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTA
 OF ANY KIND, either express or implied. See the License for the specific language
 governing permissions and limitations under the License.
 */
+const newrelic = require("newrelic");
 const handleBeforeAllHooks = require("./handleBeforeAllHooks");
 
 async function hooksPlugin(config) {
@@ -33,6 +34,9 @@ async function hooksPlugin(config) {
 
     return {
       async onExecute({ args, setResultAndStopExecution, extendContext }) {
+        await newrelic.startSegment('handleBeforeAllHooks:onExecute', true, async() => {
+          
+         
         const query = args.contextValue.params.query;
 
         const { document, contextValue: context } = args;
@@ -90,7 +94,9 @@ async function hooksPlugin(config) {
          */
 
         return {};
-      },
+      });
+      
+    },
     };
   } catch (err) {
     console.error('Error while initializing "hooks" plugin', err);
