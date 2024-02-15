@@ -21,11 +21,13 @@
     "@envelop/core": "^3.0.4",
     "eslint": "^8.31.0",
     "graphql": "^16.6.0",
-    "jest": "^29.6.4"
+    "jest": "^29.6.4",
+    "newrelic": "^11.0.0"
   },
   "peerDependencies": {
     "@envelop/core": "*",
-    "graphql": "*"
+    "graphql": "*",
+    "newrelic": "^11.0.0"
   },
   "repository": {
     "type": "git",
