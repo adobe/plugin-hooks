@@ -22,3 +22,4 @@ jobs:
         with:
           access: "public"
           token: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
+          tag: "beta"
