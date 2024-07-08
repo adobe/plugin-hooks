@@ -40,7 +40,7 @@ async function hooksPlugin(config) {
         const query = args.contextValue.params.query;
 
         const { document, contextValue: context } = args;
-        const { headers, params, request, req } = context;
+        const { headers, params, request, req, secrets } = context;
 
         let body = {};
 
@@ -49,7 +49,7 @@ async function hooksPlugin(config) {
         }
 
         const payload = {
-          context: { headers, params, request, body },
+          context: { headers, params, request, body, secrets },
           document,
         };
 
