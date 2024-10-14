@@ -65,7 +65,7 @@ const __importStar =
   };
 
 function importFn(modulePath) {
-  return Promise.resolve().then(() => __importStar(require(modulePath)));
+  return Promise.resolve(import(modulePath)).then((module) => __importStar(module));
 }
 
 /** Test code end */
