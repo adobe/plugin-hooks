@@ -58,8 +58,9 @@ const __importStar =
     const result = {};
     if (mod != null) {
       for (const k in mod) {
-        if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k))
+        if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) {
           __createBinding(result, mod, k);
+        }
       }
       __setModuleDefault(result, mod.default);
     }
