@@ -56,16 +56,19 @@ const __importStar =
   function (mod) {
     if (mod && mod.__esModule) return mod;
     const result = {};
-    if (mod != null)
-      for (const k in mod)
-        if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k))
+    if (mod != null) {
+      for (const k in mod) {
+        if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) {
           __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
+        }
+      }
+      __setModuleDefault(result, mod.default);
+    }
     return result;
   };
 
 function importFn(modulePath) {
-  return Promise.resolve().then(() => __importStar(require(modulePath)));
+  return Promise.resolve(import(modulePath)).then((module) => __importStar(module));
 }
 
 /** Test code end */
