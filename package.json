@@ -1,6 +1,6 @@
 {
   "name": "@adobe/plugin-hooks",
-  "version": "0.3.2",
+  "version": "0.3.3-beta.1",
   "publishConfig": {
     "access": "public"
   },
@@ -21,13 +21,11 @@
     "@envelop/core": "^3.0.4",
     "eslint": "^8.31.0",
     "graphql": "^16.6.0",
-    "jest": "^29.6.4",
-    "newrelic": "11.0.0"
+    "jest": "^29.6.4"
   },
   "peerDependencies": {
     "@envelop/core": "*",
-    "graphql": "*",
-    "newrelic": "11.0.0"
+    "graphql": "*"
   },
   "repository": {
     "type": "git",
