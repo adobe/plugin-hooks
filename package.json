@@ -1,6 +1,6 @@
 {
   "name": "@adobe/plugin-hooks",
-  "version": "0.3.3-beta.1",
+  "version": "0.3.3",
   "publishConfig": {
     "access": "public"
   },
