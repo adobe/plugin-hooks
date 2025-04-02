@@ -11,27 +11,40 @@ governing permissions and limitations under the License.
 */
 
 const {
+  importFn,
+  isModuleFn,
   isRemoteFn,
   invokeLocalFunction,
+  invokeLocalModuleFunction,
   invokeRemoteFunction,
-  importFn,
 } = require("./utils");
 
 const handleBeforeAllHooks = (fnBuildConfig) => async (fnExecConfig) => {
   try {
     const { memoizedFns, baseDir, logger, beforeAll } = fnBuildConfig;
     const { payload, updateContext } = fnExecConfig;
-    let beforeAllFn = null;
+    let beforeAllFn;
 
     if (!memoizedFns.beforeAll) {
       if (isRemoteFn(beforeAll.composer)) {
+        // Invoke remote endpoint
         beforeAllFn = await invokeRemoteFunction(beforeAll.composer, {
           baseDir,
           importFn,
           logger,
           blocking: beforeAll.blocking,
         });
+      } else if (isModuleFn(beforeAll)) {
+        // Invoke function from imported module. This handles bundled scenarios such as local development where the
+        // module needs to be known statically at build time.
+        beforeAllFn = await invokeLocalModuleFunction(beforeAll.module, beforeAll.fn, {
+          baseDir,
+          importFn,
+          logger,
+          blocking: beforeAll.blocking,
+        });
       } else {
+        // Invoke local function at runtime
         beforeAllFn = await invokeLocalFunction(beforeAll.composer, {
           baseDir,
           importFn,

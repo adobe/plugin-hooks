@@ -172,6 +172,100 @@ const invokeRemoteFunction = async (url, metaConfig) => (data) => {
   }
 };
 
+/**
+ * Invoke local module function. Used in situations where the module needs to be imported at build time such as in
+ * bundled use cases like local development.
+ * @param mod Imported/required JavaScript module.
+ * @param functionName Function name.
+ * @param metaConfig Meta configuration
+ * @returns {Promise<function(*): Promise<unknown>>}
+ */
+const invokeLocalModuleFunction = async (mod, functionName, metaConfig) => {
+  const { logger, blocking } = metaConfig;
+
+  const exportName = functionName || 'default'
+
+  let composerFn = null;
+
+  try {
+    composerFn = mod[exportName] || (mod.default && mod.default[exportName]) || mod.default || mod;
+  } catch (err) {
+    logger.error("error while invoking local function %s", composerFn);
+    logger.error(err);
+
+    return Promise.reject({
+      status: "ERROR",
+      message:
+        err.message || `Unable to invoke local function ${composerFn}`,
+    });
+  }
+
+  return (data) => {
+    return new Promise((resolve, reject) => {
+      try {
+        if (!composerFn) {
+          reject({
+            status: "ERROR",
+            message: `Unable to invoke local function ${composerFn}`,
+          });
+        }
+
+        logger.debug("Invoking local fn %o", composerFn);
+
+        const result = composerFn(data);
+
+        if (blocking) {
+          if (result instanceof Promise) {
+            timedPromise(result)
+              .then((res) => {
+                if (res.status.toUpperCase() === "SUCCESS") {
+                  resolve(res);
+                } else {
+                  reject(res);
+                }
+              })
+              .catch((error) => {
+                logger.error(
+                  "error while invoking local function %o",
+                  composerFn
+                );
+                logger.error(error);
+
+                reject({
+                  status: "ERROR",
+                  message:
+                    error.message ||
+                    `Error while invoking local function ${composerFn}`,
+                });
+              });
+          } else {
+            if (result.status.toUpperCase() === "SUCCESS") {
+              resolve(result);
+            } else {
+              reject(result);
+            }
+          }
+        } else {
+          resolve({
+            status: "SUCCESS",
+            message: "Local function invoked successfully",
+          });
+        }
+      } catch (error) {
+        logger.error("error while invoking local function %o", composerFn);
+        logger.error(error);
+
+        reject({
+          status: "ERROR",
+          message:
+            error.message ||
+            `Error while invoking local function ${composerFn}`,
+        });
+      }
+    });
+  };
+};
+
 const invokeLocalFunction = async (composerFnPath, metaConfig) => {
   const { baseDir, logger, importFn, blocking } = metaConfig;
 
@@ -267,9 +361,20 @@ const isRemoteFn = (composer) => {
   return urlRegex.test(composer);
 };
 
+/**
+ * Whether beforeAll has module reference.
+ * @param beforeAll
+ * @returns {boolean}
+ */
+const isModuleFn = (beforeAll) => {
+  return !!(beforeAll.module && beforeAll.fn);
+}
+
 module.exports = {
   invokeRemoteFunction,
+  invokeLocalModuleFunction,
   invokeLocalFunction,
   isRemoteFn,
+  isModuleFn,
   importFn,
 };
