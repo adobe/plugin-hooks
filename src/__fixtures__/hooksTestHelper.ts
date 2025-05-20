@@ -11,9 +11,10 @@ governing permissions and limitations under the License.
 */
 
 import { buildHTTPExecutor, SyncFetchFn } from '@graphql-tools/executor-http';
-import { createSchema, YogaInitialContext, YogaServer } from 'graphql-yoga';
+import { createSchema, Plugin, YogaInitialContext, YogaServer } from 'graphql-yoga';
 import { parse } from 'graphql';
 import { HookFunctionPayload, HookResponse, HookStatus, UserContext } from '../types';
+import { TypedExecutionArgs } from '@envelop/core';
 
 const mockSuccessResponse: HookResponse = {
 	status: HookStatus.SUCCESS,
@@ -30,7 +31,15 @@ const convertMockResponseToContext = (mockResponse: HookResponse) =>
 		body: mockResponse,
 	}) as unknown as HookFunctionPayload;
 
-const testFetch = (yogaServer: YogaServer<YogaInitialContext, UserContext>, query: string) => {
+const mockSecrets = {
+	mockSecret: 'mockSecretValue',
+};
+
+const testFetch = (
+	yogaServer: YogaServer<YogaInitialContext, UserContext>,
+	query: string,
+	operationName?: string,
+) => {
 	if (!('fetch' in yogaServer)) {
 		throw new Error('Unable to test YogaServer via fetch executor');
 	}
@@ -39,9 +48,11 @@ const testFetch = (yogaServer: YogaServer<YogaInitialContext, UserContext>, quer
 		fetch: yogaServer.fetch as SyncFetchFn,
 	});
 
+	const useOperationName = operationName || 'TestQuery';
 	return Promise.resolve(
 		executor({
 			document: parse(query),
+			operationName: useOperationName,
 		}),
 	);
 };
@@ -60,14 +71,28 @@ const mockSchema = createSchema<UserContext>({
 });
 
 const mockQuery = /* GraphQL */ `
-	query {
+	query TestQuery {
 		hello
 	}
 `;
 
+async function extractArgsPlugin(
+	ref:
+		| TypedExecutionArgs<YogaInitialContext & UserContext>
+		| TypedExecutionArgs<YogaInitialContext>,
+): Promise<Plugin<YogaInitialContext, UserContext>> {
+	return {
+		async onExecute({ args }) {
+			Object.assign(ref, args);
+		},
+	};
+}
+
 export {
 	convertMockResponseToContext,
+	extractArgsPlugin,
 	mockErrorResponse,
+	mockSecrets,
 	mockSchema,
 	mockSuccessResponse,
 	mockQuery,
