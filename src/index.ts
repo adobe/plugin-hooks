@@ -39,7 +39,6 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 		return {
 			async onExecute({ args, setResultAndStopExecution, extendContext }) {
 				const query = args.contextValue?.params?.query;
-				const operationName = args.operationName;
 				const { document, contextValue: context } = args;
 				const { params, request } = context || {};
 				const headers = Object.fromEntries(request.headers.entries());
@@ -63,6 +62,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				};
 
 				// Ignore introspection queries
+				const operationName = args.operationName;
 				const isIntrospectionQuery =
 					operationName === 'IntrospectionQuery' ||
 					(query && query.includes('query IntrospectionQuery'));
