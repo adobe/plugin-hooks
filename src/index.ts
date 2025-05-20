@@ -15,7 +15,10 @@ import getBeforeAllHookHandler, { UpdateContextFn } from './handleBeforeAllHooks
 import type { HookConfig, MemoizedFns, UserContext } from './types';
 import type { YogaLogger, Plugin, YogaInitialContext } from 'graphql-yoga';
 
-export interface PluginConfig {
+// Export types for developer experience working w/ plugins
+export type { HookFunction, HookFunctionPayload, HookResponse, HookStatus } from './types';
+
+interface PluginConfig {
 	baseDir: string;
 	logger: YogaLogger;
 	beforeAll?: HookConfig;
