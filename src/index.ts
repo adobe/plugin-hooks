@@ -11,34 +11,26 @@ governing permissions and limitations under the License.
 */
 
 import { GraphQLError } from 'graphql/error';
-import handleBeforeAllHooks, { UpdateContext } from './handleBeforeAllHooks';
-import { MeshPlugin } from '@graphql-mesh/types';
-import type { HookConfig, MemoizedFns } from './types';
-import type { YogaLogger } from 'graphql-yoga';
-
-export interface Context {
-	headers: Record<string, string>;
-	params: Record<string, unknown>;
-	request: Request;
-	req: Request;
-	body: Record<string, unknown>;
-	secrets: Record<string, unknown>;
-}
+import getBeforeAllHookHandler, { UpdateContextFn } from './handleBeforeAllHooks';
+import type { HookConfig, MemoizedFns, UserContext } from './types';
+import type { YogaLogger, Plugin, YogaInitialContext } from 'graphql-yoga';
 
 export interface PluginConfig {
 	baseDir: string;
-	beforeAll?: HookConfig;
 	logger: YogaLogger;
+	beforeAll?: HookConfig;
 }
 
-export default async function hooksPlugin(config: PluginConfig): Promise<MeshPlugin<Context>> {
+type HooksPlugin = Plugin<YogaInitialContext, Record<string, unknown>, UserContext>;
+
+export default async function hooksPlugin(config: PluginConfig): Promise<HooksPlugin> {
 	try {
 		const { beforeAll, baseDir, logger } = config;
 		if (!beforeAll) {
 			return { onExecute: async () => ({}) };
 		}
 		const memoizedFns: MemoizedFns = {};
-		const handleBeforeAllHookFn = handleBeforeAllHooks({
+		const beforeAllHookHandler = getBeforeAllHookHandler({
 			baseDir,
 			beforeAll,
 			logger,
@@ -49,20 +41,19 @@ export default async function hooksPlugin(config: PluginConfig): Promise<MeshPlu
 				const query = args.contextValue?.params?.query;
 				const operationName = args.operationName;
 				const { document, contextValue: context } = args;
-				const { headers, params, request, req, secrets } = context || {};
+				const { params, request } = context || {};
+				const headers = Object.fromEntries(request.headers.entries());
+				const secrets = 'secrets' in context ? context.secrets : {};
 				let body = {};
-				if (req && req.body) {
-					body = req.body;
+				if (request && request.body) {
+					body = request.body;
 				}
-				const payload = {
-					context: { headers, params, request, body, secrets },
-					document,
-				};
-				const updateContext: UpdateContext = data => {
+
+				const updateContext: UpdateContextFn = data => {
 					const { headers: newHeaders } = data;
 					if (newHeaders) {
 						const updatedHeaders = {
-							...args.contextValue.headers,
+							...headers,
 							...newHeaders,
 						};
 						extendContext({
@@ -74,7 +65,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<MeshPlu
 				// Ignore introspection queries
 				const isIntrospectionQuery =
 					operationName === 'IntrospectionQuery' ||
-					(query && query instanceof String && query.includes('query IntrospectionQuery'));
+					(query && query.includes('query IntrospectionQuery'));
 				if (isIntrospectionQuery) {
 					return {};
 				}
@@ -83,7 +74,11 @@ export default async function hooksPlugin(config: PluginConfig): Promise<MeshPlu
 				 * Start Before All Hook
 				 */
 				try {
-					await handleBeforeAllHookFn({ payload, updateContext });
+					const payload = {
+						context: { params, request, body, headers, secrets },
+						document,
+					};
+					await beforeAllHookHandler({ payload, updateContext });
 				} catch (err: unknown) {
 					setResultAndStopExecution({
 						data: null,
@@ -92,7 +87,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<MeshPlu
 								(err instanceof Error && err.message) || 'Error while executing hooks',
 								{
 									extensions: {
-										code: 'HOOKS_ERROR',
+										code: 'PLUGIN_HOOKS_ERROR',
 									},
 								},
 							),

@@ -11,34 +11,34 @@ governing permissions and limitations under the License.
 */
 
 import type { YogaLogger } from 'graphql-yoga';
-import type { HookConfig, HookFunction, MemoizedFns } from './types';
+import { HookConfig, HookFunction, HookFunctionPayload, HookStatus, MemoizedFns } from './types';
 
 import {
 	importFn,
 	isModuleFn,
 	isRemoteFn,
-	invokeLocalFunction,
-	invokeLocalModuleFunction,
-	invokeRemoteFunction,
+	getWrappedLocalHookFunction,
+	getWrappedLocalModuleHookFunction,
+	getWrappedRemoteHookFunction,
 } from './utils';
 
-interface FnBuildConfig {
-	memoizedFns: MemoizedFns;
+export interface BeforeAllHookBuildConfig {
 	baseDir: string;
-	logger: YogaLogger;
 	beforeAll: HookConfig;
+	logger: YogaLogger;
+	memoizedFns: MemoizedFns;
 }
 
-interface FnExecConfig {
-	payload: unknown;
-	updateContext: UpdateContext;
+export interface BeforeAllHookExecConfig {
+	payload: HookFunctionPayload;
+	updateContext: UpdateContextFn;
 }
 
-export type UpdateContext = (data: { headers?: Record<string, string> }) => void;
+export type UpdateContextFn = (data: { headers?: Record<string, string> }) => void;
 
-const handleBeforeAllHooks =
-	(fnBuildConfig: FnBuildConfig) =>
-	async (fnExecConfig: FnExecConfig): Promise<void> => {
+const getBeforeAllHookHandler =
+	(fnBuildConfig: BeforeAllHookBuildConfig) =>
+	async (fnExecConfig: BeforeAllHookExecConfig): Promise<void> => {
 		try {
 			const { memoizedFns, baseDir, logger, beforeAll } = fnBuildConfig;
 			const { payload, updateContext } = fnExecConfig;
@@ -48,7 +48,7 @@ const handleBeforeAllHooks =
 				if (isRemoteFn(beforeAll.composer || '')) {
 					// Invoke remote endpoint
 					logger.debug('Invoking remote function %s', beforeAll.composer);
-					beforeAllFn = await invokeRemoteFunction(beforeAll.composer!, {
+					beforeAllFn = await getWrappedRemoteHookFunction(beforeAll.composer!, {
 						baseDir,
 						importFn,
 						logger,
@@ -58,7 +58,7 @@ const handleBeforeAllHooks =
 					// Invoke function from imported module. This handles bundled scenarios such as local development where the
 					// module needs to be known statically at build time.
 					logger.debug('Invoking local module function %s %s', beforeAll.module, beforeAll.fn);
-					beforeAllFn = await invokeLocalModuleFunction(beforeAll.module!, beforeAll.fn!, {
+					beforeAllFn = await getWrappedLocalModuleHookFunction(beforeAll.module!, beforeAll.fn!, {
 						baseDir,
 						importFn,
 						logger,
@@ -67,7 +67,7 @@ const handleBeforeAllHooks =
 				} else {
 					// Invoke local function at runtime
 					logger.debug('Invoking local function %s', beforeAll.composer);
-					beforeAllFn = await invokeLocalFunction(beforeAll.composer!, {
+					beforeAllFn = await getWrappedLocalHookFunction(beforeAll.composer!, {
 						baseDir,
 						importFn,
 						logger,
@@ -83,7 +83,7 @@ const handleBeforeAllHooks =
 				try {
 					const hooksResponse = await beforeAllFn(payload);
 					if (beforeAll.blocking) {
-						if (hooksResponse.status.toUpperCase() === 'SUCCESS') {
+						if (hooksResponse.status.toUpperCase() === HookStatus.SUCCESS) {
 							if (hooksResponse.data) {
 								updateContext(hooksResponse.data);
 							}
@@ -109,4 +109,4 @@ const handleBeforeAllHooks =
 		}
 	};
 
-export default handleBeforeAllHooks;
+export default getBeforeAllHookHandler;

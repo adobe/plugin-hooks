@@ -3,3 +3,6 @@ node_modules
 
 # Ignore build output directory
 dist
+
+# Ignore test coverage
+coverage

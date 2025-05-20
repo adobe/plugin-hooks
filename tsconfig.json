@@ -15,5 +15,14 @@
     "module": "esnext"
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "examples",
+    "**/__mocks__/**/*",
+    "**/__fixtures__/**/*",
+    "**/__tests__/**/*",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
 }

@@ -16,7 +16,7 @@ import type { ImportFn } from '@graphql-mesh/types';
 import { default as Timeout } from 'await-timeout';
 import makeCancellablePromise from 'make-cancellable-promise';
 import fetch from 'node-fetch';
-import { HookFunction, HookStatus, Module, ResponseBody } from './types';
+import { HookFunction, HookStatus, Module, HookResponse, HookFunctionPayload } from './types';
 
 export interface MetaConfig {
 	logger: YogaLogger;
@@ -25,14 +25,23 @@ export interface MetaConfig {
 	importFn: ImportFn;
 }
 
+/**
+ * Import a module.
+ * @param modulePath Module path.
+ */
 export async function importFn(modulePath: string) {
 	return Promise.resolve(import(modulePath)).then(module => module);
 }
 
-export async function timedPromise<T>(promise: Promise<T>): Promise<T> {
+/**
+ * Execute a promise with a timeout. Defaults to 30 seconds.
+ * @param promise Promise.
+ * @param ms Duration in ms.
+ */
+export async function timedPromise<T>(promise: Promise<T>, ms: number): Promise<T> {
 	try {
 		const { promise: newPromise, cancel } = makeCancellablePromise(promise);
-		return Timeout.wrap(newPromise, 30000, 'Timeout').catch((err: Error) => {
+		return Timeout.wrap(newPromise, ms, 'Timeout').catch((err: Error) => {
 			if (err.message === 'Timeout') {
 				cancel();
 			}
@@ -43,7 +52,12 @@ export async function timedPromise<T>(promise: Promise<T>): Promise<T> {
 	}
 }
 
-export function parseResponseBody(rawBody: string, isOk: boolean): ResponseBody {
+/**
+ * Parse response body for hook response.
+ * @param rawBody Response body string.
+ * @param isOk Response status.
+ */
+export function parseResponseBody(rawBody: string, isOk: boolean): HookResponse {
 	try {
 		const body = JSON.parse(rawBody);
 		if (body.status) {
@@ -70,17 +84,22 @@ export function parseResponseBody(rawBody: string, isOk: boolean): ResponseBody 
 		} else {
 			return {
 				status: HookStatus.ERROR,
-				message: rawBody || 'Unable to parse remove function response',
+				message: rawBody || 'Unable to parse hook function response',
 			};
 		}
 	}
 }
 
-export async function invokeRemoteFunction(
+/**
+ * Get remote hook function wrapped in utilities to handle timeouts, errors, and blocking state.
+ * @param url Remote function URL.
+ * @param metaConfig Meta configuration.
+ */
+export async function getWrappedRemoteHookFunction(
 	url: string,
 	metaConfig: MetaConfig,
 ): Promise<HookFunction> {
-	return async (data: unknown): Promise<ResponseBody> => {
+	return async (data: HookFunctionPayload): Promise<HookResponse> => {
 		const { logger, blocking } = metaConfig;
 		try {
 			logger.debug('Invoking remote fn %s', url);
@@ -91,13 +110,13 @@ export async function invokeRemoteFunction(
 					'Content-Type': 'application/json',
 				},
 			};
-			return new Promise<ResponseBody>(async (resolve, reject: (reason?: ResponseBody) => void) => {
+			return new Promise<HookResponse>(async (resolve, reject: (reason?: HookResponse) => void) => {
 				const response$ = fetch(url, requestOptions);
 				if (blocking) {
 					const response = await response$;
 					const rawBody = await response.text();
 					const body = parseResponseBody(rawBody, response.ok);
-					if (body.status.toUpperCase() === 'SUCCESS') {
+					if (body.status.toUpperCase() === HookStatus.SUCCESS) {
 						resolve(body);
 					} else {
 						reject(body);
@@ -121,7 +140,13 @@ export async function invokeRemoteFunction(
 	};
 }
 
-export async function invokeLocalModuleFunction(
+/**
+ * Get local module hook function wrapped in utilities to handle timeouts, errors, and blocking state.
+ * @param mod Module.
+ * @param functionName Function name.
+ * @param metaConfig Meta configuration.
+ */
+export async function getWrappedLocalModuleHookFunction(
 	mod: Module,
 	functionName: string,
 	metaConfig: MetaConfig,
@@ -135,7 +160,7 @@ export async function invokeLocalModuleFunction(
 			mod.default ||
 			mod) as HookFunction;
 	} catch (error: unknown) {
-		logger.error('error while invoking local function %s', composerFn);
+		logger.error('Error while invoking local module function %s', composerFn);
 		logger.error(error);
 		return Promise.reject({
 			status: HookStatus.ERROR,
@@ -144,8 +169,8 @@ export async function invokeLocalModuleFunction(
 				`Unable to invoke local module function ${composerFn}`,
 		});
 	}
-	return (data: unknown) => {
-		return new Promise<ResponseBody>((resolve, reject: (reason?: ResponseBody) => void) => {
+	return (data: HookFunctionPayload) => {
+		return new Promise<HookResponse>((resolve, reject: (reason?: HookResponse) => void) => {
 			try {
 				if (!composerFn) {
 					reject({
@@ -157,16 +182,16 @@ export async function invokeLocalModuleFunction(
 				const result = composerFn(data);
 				if (blocking) {
 					if (result instanceof Promise) {
-						timedPromise(result)
-							.then((res: ResponseBody) => {
-								if (res.status.toUpperCase() === 'SUCCESS') {
+						timedPromise(result, 30000)
+							.then((res: HookResponse) => {
+								if (res.status.toUpperCase() === HookStatus.SUCCESS) {
 									resolve(res);
 								} else {
 									reject(res);
 								}
 							})
 							.catch((error: unknown) => {
-								logger.error('error while invoking local module function %o', composerFn);
+								logger.error('Error while invoking local module function %o', composerFn);
 								logger.error(error);
 								reject({
 									status: HookStatus.ERROR,
@@ -176,7 +201,7 @@ export async function invokeLocalModuleFunction(
 								});
 							});
 					} else {
-						if (result.status.toUpperCase() === 'SUCCESS') {
+						if (result.status.toUpperCase() === HookStatus.SUCCESS) {
 							resolve(result);
 						} else {
 							reject(result);
@@ -202,7 +227,12 @@ export async function invokeLocalModuleFunction(
 	};
 }
 
-export async function invokeLocalFunction(
+/**
+ * Get local module hook function wrapped in utilities to handle timeouts, errors, and blocking state.
+ * @param composerFnPath Composer function path/function name delimited with `#`. Example: `./hooks.js#example`.
+ * @param metaConfig Meta configuration.
+ */
+export async function getWrappedLocalHookFunction(
 	composerFnPath: string,
 	metaConfig: MetaConfig,
 ): Promise<HookFunction> {
@@ -224,8 +254,8 @@ export async function invokeLocalFunction(
 				`Unable to invoke local function ${composerFnPath}`,
 		});
 	}
-	return (data: unknown) => {
-		return new Promise<ResponseBody>((resolve, reject: (reason?: ResponseBody) => void) => {
+	return (data: HookFunctionPayload) => {
+		return new Promise<HookResponse>((resolve, reject: (reason?: HookResponse) => void) => {
 			try {
 				if (!composerFn) {
 					reject({
@@ -237,9 +267,9 @@ export async function invokeLocalFunction(
 				const result = composerFn(data);
 				if (blocking) {
 					if (result instanceof Promise) {
-						timedPromise(result)
-							.then((res: ResponseBody) => {
-								if (res.status.toUpperCase() === 'SUCCESS') {
+						timedPromise(result, 30000)
+							.then((res: HookResponse) => {
+								if (res.status.toUpperCase() === HookStatus.SUCCESS) {
 									resolve(res);
 								} else {
 									reject(res);
@@ -254,7 +284,7 @@ export async function invokeLocalFunction(
 								});
 							});
 					} else {
-						if (result.status.toUpperCase() === 'SUCCESS') {
+						if (result.status.toUpperCase() === HookStatus.SUCCESS) {
 							resolve(result);
 						} else {
 							reject(result);

@@ -10,11 +10,18 @@ OF ANY KIND, either express or implied. See the License for the specific languag
 governing permissions and limitations under the License.
 */
 
+import { GraphQLParams, YogaInitialContext } from 'graphql-yoga';
+
+export interface UserContext extends YogaInitialContext {
+	headers?: Record<string, string>;
+	secrets?: Record<string, string>;
+}
+
 export interface HookConfig {
+	blocking: boolean;
 	composer?: string;
 	module?: Module;
 	fn?: string;
-	blocking: boolean;
 }
 
 export interface MemoizedFns {
@@ -26,12 +33,29 @@ export interface Module {
 	default?: Module;
 }
 
-export type HookFunction = (data: unknown) => Promise<ResponseBody> | ResponseBody;
+export type HookFunctionPayload = {
+	context: PayloadContext;
+	document: unknown;
+};
 
-export interface ResponseBody {
+export interface PayloadContext {
+	request: Request;
+	params: GraphQLParams;
+	body: unknown;
+	headers?: Record<string, string>;
+	secrets?: Record<string, string>;
+}
+
+export type HookFunction = (payload: HookFunctionPayload) => Promise<HookResponse> | HookResponse;
+
+export interface HookResponse {
 	status: HookStatus;
 	message: string;
-	data?: unknown;
+	data?: {
+		headers?: {
+			[headerName: string]: string;
+		};
+	};
 }
 
 export enum HookStatus {
