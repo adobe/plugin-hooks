@@ -10,7 +10,7 @@ OF ANY KIND, either express or implied. See the License for the specific languag
 governing permissions and limitations under the License.
 */
 
-import { beforeEach } from 'vitest';
+import { beforeEach, vi, describe, test, expect } from 'vitest';
 import fetch from 'node-fetch';
 import { HookStatus, Module } from '../types';
 import {

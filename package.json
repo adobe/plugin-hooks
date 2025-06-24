@@ -20,9 +20,10 @@
   },
   "scripts": {
     "clean": "rimraf dist",
-    "build": "yarn clean && yarn build:esm && yarn build:cjs",
+    "build": "yarn clean && yarn build:esm && yarn build:cjs && yarn copy:js",
     "build:esm": "tsc --project tsconfig.esm.json --outDir dist/esm",
     "build:cjs": "tsc --project tsconfig.cjs.json --outDir dist/cjs",
+    "copy:js": "cp src/dyamicImport.js dist/esm/ && cp src/dyamicImport.js dist/cjs/",
     "prepack": "yarn build",
     "lint": "eslint src",
     "lint:fix": "eslint --fix .",

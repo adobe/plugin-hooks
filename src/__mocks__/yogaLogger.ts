@@ -11,6 +11,7 @@ governing permissions and limitations under the License.
 */
 
 import { YogaLogger } from 'graphql-yoga';
+import { vi } from 'vitest';
 
 const mockLogger = {
 	debug: vi.fn(),
