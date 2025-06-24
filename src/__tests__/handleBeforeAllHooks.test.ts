@@ -13,7 +13,7 @@ governing permissions and limitations under the License.
 import getBeforeAllHookHandler, { BeforeAllHookBuildConfig } from '../handleBeforeAllHooks';
 import { PayloadContext, HookResponse, HookStatus } from '../types';
 import { mockLogger } from '../__mocks__/yogaLogger';
-import {describe, expect, test, vi } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 
 describe('getBeforeAllHookHandler', () => {
 	test('should return beforeAllHook function', async () => {
