@@ -17,8 +17,6 @@ import { default as Timeout } from 'await-timeout';
 import makeCancellablePromise from 'make-cancellable-promise';
 import fetch from 'node-fetch';
 import { HookFunction, HookStatus, Module, HookResponse, HookFunctionPayload } from './types';
-/** @ts-ignore */
-import importFn from './dyamicImport';
 
 export interface MetaConfig {
 	logger: YogaLogger;

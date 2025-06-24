@@ -12,9 +12,9 @@ governing permissions and limitations under the License.
 
 import type { YogaLogger } from 'graphql-yoga';
 import { HookConfig, HookFunction, HookFunctionPayload, HookStatus, MemoizedFns } from './types';
-
+//@ts-expect-error The dynamic import is a workaround for cjs
+import importFn from './dynamicImport';
 import {
-	importFn,
 	isModuleFn,
 	isRemoteFn,
 	getWrappedLocalHookFunction,
