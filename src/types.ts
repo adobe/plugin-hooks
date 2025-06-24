@@ -26,6 +26,7 @@ export interface HookConfig {
 
 export interface MemoizedFns {
 	beforeAll?: HookFunction;
+	afterAll?: HookFunction;
 }
 
 export interface Module {
@@ -36,6 +37,7 @@ export interface Module {
 export type HookFunctionPayload = {
 	context: PayloadContext;
 	document: unknown;
+	result?: unknown;
 };
 
 export interface PayloadContext {
