@@ -12,12 +12,21 @@ governing permissions and limitations under the License.
 
 import { GraphQLParams, YogaInitialContext } from 'graphql-yoga';
 
+// Define types for GraphQL result data and errors
+export type GraphQLData = Record<string, unknown> | null;
+export type GraphQLError = {
+	message: string;
+	locations?: Array<{ line: number; column: number }>;
+	path?: string[];
+	extensions?: Record<string, unknown>;
+};
+
 export interface UserContext extends YogaInitialContext {
 	headers?: Record<string, string>;
 	secrets?: Record<string, string>;
 	modifiedResult?: {
-		data?: any;
-		errors?: any[];
+		data?: GraphQLData;
+		errors?: GraphQLError[];
 	};
 }
 
@@ -62,8 +71,8 @@ export interface HookResponse {
 			[headerName: string]: string;
 		};
 		result?: {
-			data?: any;
-			errors?: any[];
+			data?: GraphQLData;
+			errors?: GraphQLError[];
 		};
 	};
 }

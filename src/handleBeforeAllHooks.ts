@@ -11,7 +11,15 @@ governing permissions and limitations under the License.
 */
 
 import type { YogaLogger } from 'graphql-yoga';
-import { HookConfig, HookFunction, HookFunctionPayload, HookStatus, MemoizedFns } from './types';
+import {
+	HookConfig,
+	HookFunction,
+	HookFunctionPayload,
+	HookStatus,
+	MemoizedFns,
+	GraphQLData,
+	GraphQLError,
+} from './types';
 //@ts-expect-error The dynamic import is a workaround for cjs
 import importFn from './dynamicImport';
 import {
@@ -34,11 +42,11 @@ export interface BeforeAllHookExecConfig {
 	updateContext: UpdateContextFn;
 }
 
-export type UpdateContextFn = (data: { 
+export type UpdateContextFn = (data: {
 	headers?: Record<string, string>;
 	result?: {
-		data?: any;
-		errors?: any[];
+		data?: GraphQLData;
+		errors?: GraphQLError[];
 	};
 }) => void;
 
