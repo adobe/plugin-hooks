@@ -14,7 +14,6 @@ import { beforeEach, vi, describe, test, expect } from 'vitest';
 import fetch from 'node-fetch';
 import { HookStatus, Module } from '../types';
 import {
-	importFn,
 	getWrappedLocalHookFunction,
 	getWrappedLocalModuleHookFunction,
 	getWrappedRemoteHookFunction,
@@ -29,6 +28,7 @@ import {
 	mockErrorResponse,
 	convertMockResponseToContext,
 } from '../__fixtures__/hooksTestHelper';
+import importFn from '../dynamicImport';
 
 vi.mock('node-fetch');
 vi.mock('graphql-yoga');
@@ -55,11 +55,6 @@ const setFetchMockResponse = ({
 describe('utils', () => {
 	beforeEach(() => {
 		vi.resetAllMocks();
-	});
-	describe('importFn', async () => {
-		test('should import function', async () => {
-			expect(await importFn('./__fixtures__/hookAsync.js')).toBeTypeOf('object');
-		});
 	});
 	describe('timedPromise', async () => {
 		test('should resolve promise', async () => {

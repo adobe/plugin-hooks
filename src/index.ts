@@ -31,6 +31,7 @@ type HooksPlugin = Plugin<YogaInitialContext, Record<string, unknown>, UserConte
 export default async function hooksPlugin(config: PluginConfig): Promise<HooksPlugin> {
 	try {
 		const { beforeAll, afterAll, baseDir, logger } = config;
+		
 		if (!beforeAll && !afterAll) {
 			return { onExecute: async () => ({}) };
 		}
@@ -60,7 +61,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				}
 
 				const updateContext: UpdateContextFn = data => {
-					const { headers: newHeaders } = data;
+					const { headers: newHeaders, result: newResult } = data;
 					if (newHeaders) {
 						const updatedHeaders = {
 							...headers,
@@ -68,6 +69,12 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						};
 						extendContext({
 							headers: updatedHeaders,
+						});
+					}
+					// Store modified result for use in onExecuteDone
+					if (newResult) {
+						extendContext({
+							modifiedResult: newResult,
 						});
 					}
 				};
@@ -110,29 +117,6 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				}
 
 				if (afterAllHookHandler) {
-					// try {
-					// 	const payload = {
-					// 		context: { params, request, body, headers, secrets },
-					// 		document,
-					// 	};
-					// 	await afterAllHookHandler({ payload, updateContext });
-					// } catch (err: unknown) {
-					// 	setResultAndStopExecution({
-					// 		data: null,
-					// 		errors: [
-					// 			new GraphQLError(
-					// 				(err instanceof Error && err.message) || 'Error while executing hooks',
-					// 				{
-					// 					extensions: {
-					// 						code: 'PLUGIN_HOOKS_ERROR',
-					// 					},
-					// 				},
-					// 			),
-					// 		],
-					// 	});
-					// 	return {};
-					// }
-
 					return {
 						onExecuteDone: async ({ args, result }: { args: any; result: any }) => {
 							try {
@@ -148,21 +132,31 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 								
 								logger.debug('onExecuteDone executed successfully for afterAll hook');
 								
+								// Check if the hook modified the result
+								const modifiedResult = (context as UserContext)?.modifiedResult;
+								if (modifiedResult && afterAll?.blocking) {
+									// Apply the modified result
+									setResultAndStopExecution({
+										data: modifiedResult.data || result.data,
+										errors: modifiedResult.errors || result.errors,
+									});
+								}
+								
 							} catch (err: unknown) {
 								logger.error('Error in onExecuteDone for afterAll hook:', err);
 								
-								// For blocking hooks, propagate the error to the user
+								// For blocking hooks, throw the error to propagate it to the GraphQL response
 								if (afterAll?.blocking) {
 									setResultAndStopExecution({
 										data: null,
 										errors: [
 											new GraphQLError(
-												(err instanceof Error && err.message) || 'Error while executing afterAll hook',
+												(err instanceof Error && err.message) || 'Error while executing afterAll hook 222',
 												{
 													extensions: {
 														code: 'AFTER_ALL_HOOK_ERROR',
 													},
-												},
+												}
 											),
 										],
 									});

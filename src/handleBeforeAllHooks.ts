@@ -34,7 +34,13 @@ export interface BeforeAllHookExecConfig {
 	updateContext: UpdateContextFn;
 }
 
-export type UpdateContextFn = (data: { headers?: Record<string, string> }) => void;
+export type UpdateContextFn = (data: { 
+	headers?: Record<string, string>;
+	result?: {
+		data?: any;
+		errors?: any[];
+	};
+}) => void;
 
 const getBeforeAllHookHandler =
 	(fnBuildConfig: BeforeAllHookBuildConfig) =>

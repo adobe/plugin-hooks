@@ -15,6 +15,10 @@ import { GraphQLParams, YogaInitialContext } from 'graphql-yoga';
 export interface UserContext extends YogaInitialContext {
 	headers?: Record<string, string>;
 	secrets?: Record<string, string>;
+	modifiedResult?: {
+		data?: any;
+		errors?: any[];
+	};
 }
 
 export interface HookConfig {
@@ -56,6 +60,10 @@ export interface HookResponse {
 	data?: {
 		headers?: {
 			[headerName: string]: string;
+		};
+		result?: {
+			data?: any;
+			errors?: any[];
 		};
 	};
 }
