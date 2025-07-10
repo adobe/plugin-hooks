@@ -71,7 +71,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				}
 
 				const updateContext: UpdateContextFn = data => {
-					const { headers: newHeaders, result: newResult } = data;
+					const { headers: newHeaders } = data;
 					if (newHeaders) {
 						const updatedHeaders = {
 							...headers,
@@ -79,12 +79,6 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						};
 						extendContext({
 							headers: updatedHeaders,
-						});
-					}
-					// Store modified result for use in onExecuteDone
-					if (newResult) {
-						extendContext({
-							modifiedResult: newResult,
 						});
 					}
 				};
@@ -141,18 +135,16 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 									result, // This is the GraphQL execution result
 								};
 
-								// Execute the afterAll hook
-								await afterAllHookHandler({ payload, updateContext });
+								// Execute the afterAll hook and get the response
+								const hookResponse = await afterAllHookHandler({ payload });
 
 								logger.debug('onExecuteDone executed successfully for afterAll hook');
 
-								// Check if the hook modified the result
-								const modifiedResult = (context as UserContext)?.modifiedResult;
-								if (modifiedResult && afterAll?.blocking) {
-									// Apply the modified result
+								// Apply the modified result if hook returned one in data.result format
+								if (hookResponse?.data?.result && afterAll?.blocking) {
 									setResultAndStopExecution({
-										data: modifiedResult.data || result.data,
-										errors: modifiedResult.errors || result.errors,
+										data: hookResponse.data.result.data || result.data,
+										errors: hookResponse.data.result.errors || result.errors,
 									});
 								}
 							} catch (err: unknown) {
@@ -175,7 +167,6 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 										],
 									});
 								}
-								// For non-blocking hooks, just log the error and continue
 							}
 						},
 					};

@@ -17,8 +17,7 @@ import {
 	HookFunctionPayload,
 	HookStatus,
 	MemoizedFns,
-	GraphQLData,
-	GraphQLError,
+	HookResponse,
 } from './types';
 //@ts-expect-error The dynamic import is a workaround for cjs
 import importFn from './dynamicImport';
@@ -39,23 +38,14 @@ export interface AfterAllHookBuildConfig {
 
 export interface AfterAllHookExecConfig {
 	payload: HookFunctionPayload;
-	updateContext: UpdateContextFn;
 }
-
-export type UpdateContextFn = (data: {
-	headers?: Record<string, string>;
-	result?: {
-		data?: GraphQLData;
-		errors?: GraphQLError[];
-	};
-}) => void;
 
 const getAfterAllHookHandler =
 	(fnBuildConfig: AfterAllHookBuildConfig) =>
-	async (fnExecConfig: AfterAllHookExecConfig): Promise<void> => {
+	async (fnExecConfig: AfterAllHookExecConfig): Promise<HookResponse | undefined> => {
 		try {
 			const { memoizedFns, baseDir, logger, afterAll } = fnBuildConfig;
-			const { payload, updateContext } = fnExecConfig;
+			const { payload } = fnExecConfig;
 			let afterAllFn: HookFunction | undefined;
 
 			if (!memoizedFns.afterAll) {
@@ -96,15 +86,10 @@ const getAfterAllHookHandler =
 			if (afterAllFn) {
 				try {
 					const hooksResponse = await afterAllFn(payload);
-					if (afterAll.blocking) {
-						if (hooksResponse.status.toUpperCase() === HookStatus.SUCCESS) {
-							if (hooksResponse.data) {
-								updateContext(hooksResponse.data);
-							}
-						} else {
-							throw new Error(hooksResponse.message);
-						}
+					if (afterAll.blocking && hooksResponse.status.toUpperCase() !== HookStatus.SUCCESS) {
+						throw new Error(hooksResponse.message);
 					}
+					return hooksResponse;
 				} catch (err: unknown) {
 					logger.error('Error while invoking afterAll hook %o', err);
 					if (err instanceof Error) {

@@ -28,7 +28,6 @@ export type GraphQLResult = {
 export interface UserContext extends YogaInitialContext {
 	headers?: Record<string, string>;
 	secrets?: Record<string, string>;
-	modifiedResult?: GraphQLResult;
 }
 
 export interface HookConfig {

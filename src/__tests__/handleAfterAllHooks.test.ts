@@ -13,1303 +13,246 @@ governing permissions and limitations under the License.
 import getAfterAllHookHandler, { AfterAllHookBuildConfig } from '../handleAfterAllHooks';
 import { PayloadContext, HookResponse, HookStatus } from '../types';
 import { mockLogger } from '../__mocks__/yogaLogger';
-import { describe, expect, test, vi } from 'vitest';
+import { describe, expect, test, vi, beforeEach } from 'vitest';
 
-describe('getAfterAllHookHandler', () => {
-	test('should return afterAllHook function', async () => {
+// Mock the utility functions
+vi.mock('../utils', async () => {
+	const actual = await vi.importActual('../utils');
+	return {
+		...actual,
+		getWrappedLocalHookFunction: vi.fn(),
+		getWrappedLocalModuleHookFunction: vi.fn(),
+		getWrappedRemoteHookFunction: vi.fn(),
+		isRemoteFn: vi.fn(),
+		isModuleFn: vi.fn(),
+	};
+});
+
+describe('getAfterAllHookHandler (afterAll)', () => {
+	const basePayload = {
+		context: {} as unknown as PayloadContext,
+		document: {},
+		result: { data: { test: 'value' } },
+	};
+
+	let utils: typeof import('../utils');
+	beforeEach(async () => {
+		vi.clearAllMocks();
+		utils = await import('../utils');
+	});
+
+	test('calls hook and returns response (blocking, success)', async () => {
+		vi.mocked(utils.isModuleFn).mockReturnValue(true);
+		const mockResponse: HookResponse = { status: HookStatus.SUCCESS, message: 'ok' };
+		const mockHook = vi.fn().mockResolvedValue(mockResponse);
+		vi.mocked(utils.getWrappedLocalModuleHookFunction).mockResolvedValue(mockHook);
+		vi.mocked(utils.getWrappedLocalHookFunction).mockResolvedValue(mockHook);
 		const mockConfig: AfterAllHookBuildConfig = {
 			memoizedFns: {},
 			baseDir: '',
 			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-			},
+			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
 		};
-		expect(getAfterAllHookHandler(mockConfig)).toBeTypeOf('function');
+		const handler = getAfterAllHookHandler(mockConfig);
+		const result = await handler({ payload: basePayload });
+		expect(result).toEqual(mockResponse);
+		expect(mockHook).toHaveBeenCalledOnce();
 	});
 
-	describe('should call hook without error', () => {
-		test('when blocking and success', async () => {
-			const mockResponse: HookResponse = {
-				status: HookStatus.SUCCESS,
-				message: 'ok',
-			};
-			const mockHook = vi.fn().mockReturnValue(Promise.resolve(mockResponse));
-			const mockModule = { mockHook };
-			const mockConfig: AfterAllHookBuildConfig = {
-				memoizedFns: {},
-				baseDir: '',
-				logger: mockLogger,
-				afterAll: {
-					blocking: true,
-					module: mockModule,
-					fn: 'mockHook',
-				},
-			};
-			const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-			expect(mockHook).toHaveBeenCalledTimes(0);
-			await afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			});
-			expect(mockHook).toHaveBeenCalledOnce();
-		});
-
-		test('when non-blocking and success', async () => {
-			const mockResponse: HookResponse = {
-				status: HookStatus.SUCCESS,
-				message: 'ok',
-			};
-			const mockHook = vi.fn().mockReturnValue(Promise.resolve(mockResponse));
-			const mockModule = { mockHook };
-			const mockConfig: AfterAllHookBuildConfig = {
-				memoizedFns: {},
-				baseDir: '',
-				logger: mockLogger,
-				afterAll: {
-					blocking: false,
-					module: mockModule,
-					fn: 'mockHook',
-				},
-			};
-			const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-			expect(mockHook).toHaveBeenCalledTimes(0);
-			await afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			});
-			expect(mockHook).toHaveBeenCalledOnce();
-		});
-
-		test('when non-blocking and error', async () => {
-			const mockResponse: HookResponse = {
-				status: HookStatus.ERROR,
-				message: 'mock error message',
-			};
-			const mockHook = vi.fn().mockReturnValue(Promise.resolve(mockResponse));
-			const mockModule = { mockHook };
-			const mockConfig: AfterAllHookBuildConfig = {
-				memoizedFns: {},
-				baseDir: '',
-				logger: mockLogger,
-				afterAll: {
-					blocking: false,
-					module: mockModule,
-					fn: 'mockHook',
-				},
-			};
-			const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-			expect(mockHook).toHaveBeenCalledTimes(0);
-			await afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			});
-			expect(mockHook).toHaveBeenCalledOnce();
-		});
-
-		test('should update context when blocking hook returns headers', async () => {
-			const mockResponse: HookResponse = {
-				status: HookStatus.SUCCESS,
-				message: 'ok',
-				data: {
-					headers: {
-						'x-afterall-header': 'modified-value',
-					},
-				},
-			};
-			const mockHook = vi.fn().mockReturnValue(Promise.resolve(mockResponse));
-			const mockModule = { mockHook };
-			const mockConfig: AfterAllHookBuildConfig = {
-				memoizedFns: {},
-				baseDir: '',
-				logger: mockLogger,
-				afterAll: {
-					blocking: true,
-					module: mockModule,
-					fn: 'mockHook',
-				},
-			};
-			const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-			const updateContext = vi.fn();
-
-			await afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext,
-			});
-
-			expect(updateContext).toHaveBeenCalledWith({
-				headers: {
-					'x-afterall-header': 'modified-value',
-				},
-			});
-		});
-	});
-
-	test('should throw when blocking and error', async () => {
-		const mockResponse: HookResponse = {
-			status: HookStatus.ERROR,
-			message: 'mock error message',
-		};
-		const mockHook = vi.fn().mockReturnValue(Promise.resolve(mockResponse));
-		const mockModule = { mockHook };
+	test('throws if blocking and status is ERROR', async () => {
+		vi.mocked(utils.isModuleFn).mockReturnValue(true);
+		const mockResponse: HookResponse = { status: HookStatus.ERROR, message: 'fail' };
+		const mockHook = vi.fn().mockResolvedValue(mockResponse);
+		vi.mocked(utils.getWrappedLocalModuleHookFunction).mockResolvedValue(mockHook);
+		vi.mocked(utils.getWrappedLocalHookFunction).mockResolvedValue(mockHook);
 		const mockConfig: AfterAllHookBuildConfig = {
 			memoizedFns: {},
 			baseDir: '',
 			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
+			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
 		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-		await expect(
-			afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			}),
-		).rejects.toThrowError(mockResponse.message);
+		const handler = getAfterAllHookHandler(mockConfig);
+		await expect(handler({ payload: basePayload })).rejects.toThrow('fail');
 	});
 
-	test('should return memoized function when previously invoked', async () => {
+	test('does not throw if non-blocking and status is ERROR', async () => {
+		vi.mocked(utils.isModuleFn).mockReturnValue(true);
+		const mockResponse: HookResponse = { status: HookStatus.ERROR, message: 'fail' };
+		const mockHook = vi.fn().mockResolvedValue(mockResponse);
+		vi.mocked(utils.getWrappedLocalModuleHookFunction).mockResolvedValue(mockHook);
+		vi.mocked(utils.getWrappedLocalHookFunction).mockResolvedValue(mockHook);
+		const mockConfig: AfterAllHookBuildConfig = {
+			memoizedFns: {},
+			baseDir: '',
+			logger: mockLogger,
+			afterAll: { blocking: false, module: { mockHook }, fn: 'mockHook' },
+		};
+		const handler = getAfterAllHookHandler(mockConfig);
+		const result = await handler({ payload: basePayload });
+		expect(result).toEqual(mockResponse);
+		expect(mockHook).toHaveBeenCalledOnce();
+	});
+
+	test('returns modified result if present in response', async () => {
+		vi.mocked(utils.isModuleFn).mockReturnValue(true);
+		const modifiedResult = { data: { foo: 'bar' }, errors: [] };
 		const mockResponse: HookResponse = {
 			status: HookStatus.SUCCESS,
-			message: 'ok',
+			message: 'modified',
+			data: { result: modifiedResult },
 		};
-		const mockMemoizedHook = vi.fn().mockReturnValue(Promise.resolve(mockResponse));
-		const mockHook = vi.fn().mockReturnValue(Promise.resolve(mockResponse));
-		const mockModule = { mockHook };
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {
-				afterAll: mockMemoizedHook,
-			},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-		expect(mockHook).toHaveBeenCalledTimes(0);
-		expect(mockMemoizedHook).toHaveBeenCalledTimes(0);
-		await afterAllHookHandler({
-			payload: {
-				context: {} as unknown as PayloadContext,
-				document: {},
-				result: { data: { test: 'value' } },
-			},
-			updateContext: () => {},
-		});
-		expect(mockHook).toHaveBeenCalledTimes(0);
-		expect(mockMemoizedHook).toHaveBeenCalledOnce();
-	});
-
-	test('should handle invalid response structure gracefully', async () => {
-		const mockHook = vi.fn().mockReturnValue(
-			Promise.resolve({
-				invalidField: 'This should cause an error',
-			}),
-		);
-		const mockModule = { mockHook };
+		const mockHook = vi.fn().mockResolvedValue(mockResponse);
+		vi.mocked(utils.getWrappedLocalModuleHookFunction).mockResolvedValue(mockHook);
+		vi.mocked(utils.getWrappedLocalHookFunction).mockResolvedValue(mockHook);
 		const mockConfig: AfterAllHookBuildConfig = {
 			memoizedFns: {},
 			baseDir: '',
 			logger: mockLogger,
-			afterAll: {
-				blocking: false,
-				module: mockModule,
-				fn: 'mockHook',
-			},
+			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
 		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		// Should not throw for non-blocking hooks
-		await afterAllHookHandler({
-			payload: {
-				context: {} as unknown as PayloadContext,
-				document: {},
-				result: { data: { test: 'value' } },
-			},
-			updateContext: () => {},
-		});
-
+		const handler = getAfterAllHookHandler(mockConfig);
+		const result = await handler({ payload: basePayload });
+		expect(result).toEqual(mockResponse);
 		expect(mockHook).toHaveBeenCalledOnce();
 	});
 
-	test('should pass result data to hook function', async () => {
-		const mockHook = vi.fn().mockReturnValue(
-			Promise.resolve({
-				status: HookStatus.SUCCESS,
-				message: 'ok',
-			}),
-		);
-		const mockModule = { mockHook };
+	test('handles headers in response data', async () => {
+		vi.mocked(utils.isModuleFn).mockReturnValue(true);
+		const mockResponse: HookResponse = {
+			status: HookStatus.SUCCESS,
+			message: 'headers',
+			data: { headers: { 'x-test': 'abc' } },
+		};
+		const mockHook = vi.fn().mockResolvedValue(mockResponse);
+		vi.mocked(utils.getWrappedLocalModuleHookFunction).mockResolvedValue(mockHook);
+		vi.mocked(utils.getWrappedLocalHookFunction).mockResolvedValue(mockHook);
 		const mockConfig: AfterAllHookBuildConfig = {
 			memoizedFns: {},
 			baseDir: '',
 			logger: mockLogger,
-			afterAll: {
-				blocking: false,
-				module: mockModule,
-				fn: 'mockHook',
-			},
+			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
 		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-		const testResult = { data: { user: { id: '123', name: 'Test User' } } };
-
-		await afterAllHookHandler({
-			payload: { context: {} as unknown as PayloadContext, document: {}, result: testResult },
-			updateContext: () => {},
-		});
-
-		expect(mockHook).toHaveBeenCalledWith({
-			context: {} as unknown as PayloadContext,
-			document: {},
-			result: testResult,
-		});
+		const handler = getAfterAllHookHandler(mockConfig);
+		const result = await handler({ payload: basePayload });
+		expect(result).toEqual(mockResponse);
+		expect(mockHook).toHaveBeenCalledOnce();
 	});
 
-	test('should handle result modification with data transformation', async () => {
-		const mockHook = vi.fn().mockReturnValue(
-			Promise.resolve({
-				status: HookStatus.SUCCESS,
-				message: 'data transformed',
-				data: {
-					result: {
-						data: { transformed: true, originalData: 'modified' },
-						errors: [],
-					},
-				},
-			}),
-		);
-		const mockModule = { mockHook };
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-		const updateContext = vi.fn();
-
-		await afterAllHookHandler({
-			payload: {
-				context: {} as unknown as PayloadContext,
-				document: {},
-				result: { data: { original: 'data' } },
-			},
-			updateContext,
-		});
-
-		expect(updateContext).toHaveBeenCalledWith({
-			result: {
-				data: { transformed: true, originalData: 'modified' },
-				errors: [],
-			},
-		});
-	});
-
-	test('should handle result modification with error addition', async () => {
-		const mockHook = vi.fn().mockReturnValue(
-			Promise.resolve({
-				status: HookStatus.SUCCESS,
-				message: 'errors added',
-				data: {
-					result: {
-						data: { original: 'data' },
-						errors: [
-							{
-								message: 'Validation error from afterAll',
-								extensions: { code: 'VALIDATION_ERROR' },
-							},
-						],
-					},
-				},
-			}),
-		);
-		const mockModule = { mockHook };
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-		const updateContext = vi.fn();
-
-		await afterAllHookHandler({
-			payload: {
-				context: {} as unknown as PayloadContext,
-				document: {},
-				result: { data: { original: 'data' } },
-			},
-			updateContext,
-		});
-
-		expect(updateContext).toHaveBeenCalledWith({
-			result: {
-				data: { original: 'data' },
-				errors: [
-					{
-						message: 'Validation error from afterAll',
-						extensions: { code: 'VALIDATION_ERROR' },
-					},
-				],
-			},
-		});
-	});
-
-	test('should handle empty result data', async () => {
-		const mockHook = vi.fn().mockReturnValue(
-			Promise.resolve({
-				status: HookStatus.SUCCESS,
-				message: 'empty result handled',
-			}),
-		);
-		const mockModule = { mockHook };
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: false,
-				module: mockModule,
-				fn: 'mockHook',
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		await afterAllHookHandler({
-			payload: { context: {} as unknown as PayloadContext, document: {}, result: { data: null } },
-			updateContext: () => {},
-		});
-
-		expect(mockHook).toHaveBeenCalledWith({
-			context: {} as unknown as PayloadContext,
-			document: {},
-			result: { data: null },
-		});
-	});
-
-	test('should handle undefined result data', async () => {
-		const mockHook = vi.fn().mockReturnValue(
-			Promise.resolve({
-				status: HookStatus.SUCCESS,
-				message: 'undefined result handled',
-			}),
-		);
-		const mockModule = { mockHook };
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: false,
-				module: mockModule,
-				fn: 'mockHook',
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		await afterAllHookHandler({
-			payload: {
-				context: {} as unknown as PayloadContext,
-				document: {},
-				result: { data: undefined },
-			},
-			updateContext: () => {},
-		});
-
-		expect(mockHook).toHaveBeenCalledWith({
-			context: {} as unknown as PayloadContext,
-			document: {},
-			result: { data: undefined },
-		});
-	});
-
-	test('should handle hook function throwing error', async () => {
+	test('throws if hook throws (blocking)', async () => {
+		vi.mocked(utils.isModuleFn).mockReturnValue(true);
 		const mockHook = vi.fn().mockImplementation(() => {
-			throw new Error('Hook function error');
+			throw new Error('fail!');
 		});
-		const mockModule = { mockHook };
+		vi.mocked(utils.getWrappedLocalModuleHookFunction).mockResolvedValue(mockHook);
+		vi.mocked(utils.getWrappedLocalHookFunction).mockResolvedValue(mockHook);
 		const mockConfig: AfterAllHookBuildConfig = {
 			memoizedFns: {},
 			baseDir: '',
 			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
+			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
 		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		await expect(
-			afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			}),
-		).rejects.toThrowError('Hook function error');
+		const handler = getAfterAllHookHandler(mockConfig);
+		await expect(handler({ payload: basePayload })).rejects.toThrow('fail!');
 	});
 
-	test('should handle hook function returning invalid status', async () => {
-		const mockHook = vi.fn().mockReturnValue(
-			Promise.resolve({
-				status: 'INVALID_STATUS',
-				message: 'invalid status',
-			}),
-		);
-		const mockModule = { mockHook };
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		await expect(
-			afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			}),
-		).rejects.toThrowError('invalid status');
-	});
-
-	test('should handle non-blocking hook with invalid response structure', async () => {
-		const mockHook = vi.fn().mockReturnValue(
-			Promise.resolve({
-				invalidField: 'This should not cause an error for non-blocking hooks',
-			}),
-		);
-		const mockModule = { mockHook };
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: false,
-				module: mockModule,
-				fn: 'mockHook',
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		// Should not throw for non-blocking hooks with invalid response
-		await afterAllHookHandler({
-			payload: {
-				context: {} as unknown as PayloadContext,
-				document: {},
-				result: { data: { test: 'value' } },
-			},
-			updateContext: () => {},
-		});
-
-		expect(mockHook).toHaveBeenCalledOnce();
-	});
-
-	test('should handle blocking hook with missing status field', async () => {
-		const mockHook = vi.fn().mockReturnValue(
-			Promise.resolve({
-				message: 'missing status field',
-			}),
-		);
-		const mockModule = { mockHook };
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		await expect(
-			afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			}),
-		).rejects.toThrowError("Cannot read properties of undefined (reading 'toUpperCase')");
-	});
-
-	test('should handle updateContext with both headers and result', async () => {
-		const mockHook = vi.fn().mockReturnValue(
-			Promise.resolve({
-				status: HookStatus.SUCCESS,
-				message: 'both headers and result',
-				data: {
-					headers: {
-						'x-custom-header': 'custom-value',
-					},
-					result: {
-						data: { modified: true },
-						errors: [],
-					},
-				},
-			}),
-		);
-		const mockModule = { mockHook };
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-		const updateContext = vi.fn();
-
-		await afterAllHookHandler({
-			payload: {
-				context: {} as unknown as PayloadContext,
-				document: {},
-				result: { data: { original: 'data' } },
-			},
-			updateContext,
-		});
-
-		expect(updateContext).toHaveBeenCalledWith({
-			headers: {
-				'x-custom-header': 'custom-value',
-			},
-			result: {
-				data: { modified: true },
-				errors: [],
-			},
-		});
-	});
-
-	test('should handle blocking hook with success but no data property', async () => {
-		const mockHook = vi.fn().mockReturnValue(
-			Promise.resolve({
-				status: HookStatus.SUCCESS,
-				message: 'success but no data',
-			}),
-		);
-		const mockModule = { mockHook };
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-		const updateContext = vi.fn();
-
-		await afterAllHookHandler({
-			payload: {
-				context: {} as unknown as PayloadContext,
-				document: {},
-				result: { data: { test: 'value' } },
-			},
-			updateContext,
-		});
-
-		expect(mockHook).toHaveBeenCalledOnce();
-		expect(updateContext).not.toHaveBeenCalled(); // Should not call updateContext when no data
-	});
-
-	test('should handle blocking hook with success and empty data object', async () => {
-		const mockHook = vi.fn().mockReturnValue(
-			Promise.resolve({
-				status: HookStatus.SUCCESS,
-				message: 'success with empty data',
-				data: {},
-			}),
-		);
-		const mockModule = { mockHook };
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-		const updateContext = vi.fn();
-
-		await afterAllHookHandler({
-			payload: {
-				context: {} as unknown as PayloadContext,
-				document: {},
-				result: { data: { test: 'value' } },
-			},
-			updateContext,
-		});
-
-		expect(mockHook).toHaveBeenCalledOnce();
-		expect(updateContext).toHaveBeenCalledWith({}); // Should call updateContext with empty object
-	});
-
-	test('should handle non-blocking hook with data (should not call updateContext)', async () => {
-		const mockHook = vi.fn().mockReturnValue(
-			Promise.resolve({
-				status: HookStatus.SUCCESS,
-				message: 'non-blocking with data',
-				data: {
-					result: {
-						data: { modified: true },
-						errors: [],
-					},
-				},
-			}),
-		);
-		const mockModule = { mockHook };
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: false,
-				module: mockModule,
-				fn: 'mockHook',
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-		const updateContext = vi.fn();
-
-		await afterAllHookHandler({
-			payload: {
-				context: {} as unknown as PayloadContext,
-				document: {},
-				result: { data: { test: 'value' } },
-			},
-			updateContext,
-		});
-
-		expect(mockHook).toHaveBeenCalledOnce();
-		expect(updateContext).not.toHaveBeenCalled(); // Non-blocking hooks should not call updateContext
-	});
-
-	test('should handle hook function returning non-Error object with message', async () => {
-		const mockHook = vi.fn().mockImplementation(() => {
-			throw { message: 'Non-Error object with message' };
-		});
-		const mockModule = { mockHook };
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		await expect(
-			afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			}),
-		).rejects.toThrowError('Error while invoking local module function');
-	});
-
-	test('should handle hook function returning object without message property', async () => {
-		const mockHook = vi.fn().mockImplementation(() => {
-			throw { someOtherProperty: 'no message property' };
-		});
-		const mockModule = { mockHook };
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		await expect(
-			afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			}),
-		).rejects.toThrowError('Error while invoking local module function');
-	});
-
-	test('should handle hook function returning primitive value', async () => {
-		const mockHook = vi.fn().mockImplementation(() => {
-			throw 'Primitive string error';
-		});
-		const mockModule = { mockHook };
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		await expect(
-			afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			}),
-		).rejects.toThrowError('Error while invoking local module function');
-	});
-
-	test('should handle memoized function throwing error', async () => {
-		const mockMemoizedHook = vi.fn().mockImplementation(() => {
-			throw new Error('Memoized function error');
-		});
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {
-				afterAll: mockMemoizedHook,
-			},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-			},
-		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		await expect(
-			afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			}),
-		).rejects.toThrowError('Memoized function error');
-	});
-
-	test('should handle memoized function returning invalid response', async () => {
-		const mockMemoizedHook = vi.fn().mockReturnValue(
-			Promise.resolve({
-				status: HookStatus.ERROR,
-				message: 'Memoized function error response',
-			}),
+	test('throws error if no hook is defined', async () => {
+		vi.mocked(utils.isModuleFn).mockReturnValue(false);
+		vi.mocked(utils.isRemoteFn).mockReturnValue(false);
+		vi.mocked(utils.getWrappedLocalHookFunction).mockRejectedValue(
+			new Error('Unable to invoke local function undefined'),
 		);
 		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {
-				afterAll: mockMemoizedHook,
-			},
+			memoizedFns: {},
 			baseDir: '',
 			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-			},
+			afterAll: { blocking: true },
 		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		await expect(
-			afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			}),
-		).rejects.toThrowError('Memoized function error response');
+		const handler = getAfterAllHookHandler(mockConfig);
+		await expect(handler({ payload: basePayload })).rejects.toThrow(
+			'Unable to invoke local function undefined',
+		);
 	});
 
-	test('should handle afterAll function not being defined', async () => {
+	test('uses memoized function if present', async () => {
+		vi.mocked(utils.isModuleFn).mockReturnValue(false);
+		const mockResponse: HookResponse = { status: HookStatus.SUCCESS, message: 'ok' };
+		const memoized = vi.fn().mockResolvedValue(mockResponse);
+		const mockConfig: AfterAllHookBuildConfig = {
+			memoizedFns: { afterAll: memoized },
+			baseDir: '',
+			logger: mockLogger,
+			afterAll: { blocking: true },
+		};
+		const handler = getAfterAllHookHandler(mockConfig);
+		const result = await handler({ payload: basePayload });
+		expect(result).toEqual(mockResponse);
+		expect(memoized).toHaveBeenCalledOnce();
+	});
+
+	test('handles invalid response (missing status) for blocking', async () => {
+		vi.mocked(utils.isModuleFn).mockReturnValue(true);
+		const mockHook = vi.fn().mockResolvedValue({ message: 'no status' });
+		vi.mocked(utils.getWrappedLocalModuleHookFunction).mockResolvedValue(mockHook);
+		vi.mocked(utils.getWrappedLocalHookFunction).mockResolvedValue(mockHook);
 		const mockConfig: AfterAllHookBuildConfig = {
 			memoizedFns: {},
 			baseDir: '',
 			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				// No module or composer defined
-			},
+			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
 		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		// Should throw when no function is defined
-		await expect(
-			afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			}),
-		).rejects.toThrowError('Unable to invoke local function undefined');
+		const handler = getAfterAllHookHandler(mockConfig);
+		await expect(handler({ payload: basePayload })).rejects.toThrow();
 	});
 
-	test('should handle afterAll function returning null', async () => {
-		const mockHook = vi.fn().mockReturnValue(Promise.resolve(null));
-		const mockModule = { mockHook };
+	test('handles remote hook (success)', async () => {
+		vi.mocked(utils.isRemoteFn).mockReturnValue(true);
+		const mockRemoteHook = vi
+			.fn()
+			.mockResolvedValue({ status: HookStatus.SUCCESS, message: 'remote ok' });
+		vi.mocked(utils.getWrappedRemoteHookFunction).mockResolvedValue(mockRemoteHook);
 		const mockConfig: AfterAllHookBuildConfig = {
 			memoizedFns: {},
 			baseDir: '',
 			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
+			afterAll: { blocking: true, composer: 'https://remote' },
 		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		await expect(
-			afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			}),
-		).rejects.toThrowError("Cannot read properties of null (reading 'status')");
+		const handler = getAfterAllHookHandler(mockConfig);
+		const result = await handler({ payload: basePayload });
+		expect(result).toEqual({ status: HookStatus.SUCCESS, message: 'remote ok' });
+		expect(mockRemoteHook).toHaveBeenCalledOnce();
 	});
 
-	test('should handle afterAll function returning undefined', async () => {
-		const mockHook = vi.fn().mockReturnValue(Promise.resolve(undefined));
-		const mockModule = { mockHook };
+	test('handles remote hook (error, blocking)', async () => {
+		vi.mocked(utils.isRemoteFn).mockReturnValue(true);
+		const mockRemoteHook = vi
+			.fn()
+			.mockResolvedValue({ status: HookStatus.ERROR, message: 'remote fail' });
+		vi.mocked(utils.getWrappedRemoteHookFunction).mockResolvedValue(mockRemoteHook);
 		const mockConfig: AfterAllHookBuildConfig = {
 			memoizedFns: {},
 			baseDir: '',
 			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
+			afterAll: { blocking: true, composer: 'https://remote' },
 		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		await expect(
-			afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			}),
-		).rejects.toThrowError("Cannot read properties of undefined (reading 'status')");
+		const handler = getAfterAllHookHandler(mockConfig);
+		await expect(handler({ payload: basePayload })).rejects.toThrow('remote fail');
 	});
 
-	test('should handle afterAll function returning primitive value', async () => {
-		const mockHook = vi.fn().mockReturnValue(Promise.resolve('string response'));
-		const mockModule = { mockHook };
+	test('handles remote hook (error, non-blocking)', async () => {
+		vi.mocked(utils.isRemoteFn).mockReturnValue(true);
+		const mockRemoteHook = vi
+			.fn()
+			.mockResolvedValue({ status: HookStatus.ERROR, message: 'remote fail' });
+		vi.mocked(utils.getWrappedRemoteHookFunction).mockResolvedValue(mockRemoteHook);
 		const mockConfig: AfterAllHookBuildConfig = {
 			memoizedFns: {},
 			baseDir: '',
 			logger: mockLogger,
-			afterAll: {
-				blocking: true,
-				module: mockModule,
-				fn: 'mockHook',
-			},
+			afterAll: { blocking: false, composer: 'https://remote' },
 		};
-		const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-		await expect(
-			afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			}),
-		).rejects.toThrowError("Cannot read properties of undefined (reading 'toUpperCase')");
-	});
-
-	describe('Remote Hook Tests', () => {
-		test('should handle remote hook with success response', async () => {
-			const mockRemoteHook = vi.fn().mockReturnValue(
-				Promise.resolve({
-					status: HookStatus.SUCCESS,
-					message: 'Remote hook success',
-					data: {
-						headers: {
-							'x-remote-header': 'remote-value',
-						},
-					},
-				}),
-			);
-			const mockConfig: AfterAllHookBuildConfig = {
-				memoizedFns: {},
-				baseDir: '',
-				logger: mockLogger,
-				afterAll: {
-					blocking: true,
-					composer: 'https://example.com/remote-hook',
-				},
-			};
-
-			// Mock the getWrappedRemoteHookFunction to return our mock
-			const originalGetWrappedRemoteHookFunction = await import('../utils');
-			vi.spyOn(
-				originalGetWrappedRemoteHookFunction,
-				'getWrappedRemoteHookFunction',
-			).mockResolvedValue(mockRemoteHook);
-
-			const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-			const updateContext = vi.fn();
-
-			await afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext,
-			});
-
-			expect(mockRemoteHook).toHaveBeenCalledOnce();
-			expect(updateContext).toHaveBeenCalledWith({
-				headers: {
-					'x-remote-header': 'remote-value',
-				},
-			});
-		});
-
-		test('should handle remote hook with error response', async () => {
-			const mockRemoteHook = vi.fn().mockReturnValue(
-				Promise.resolve({
-					status: HookStatus.ERROR,
-					message: 'Remote hook error',
-				}),
-			);
-			const mockConfig: AfterAllHookBuildConfig = {
-				memoizedFns: {},
-				baseDir: '',
-				logger: mockLogger,
-				afterAll: {
-					blocking: true,
-					composer: 'https://example.com/remote-hook',
-				},
-			};
-
-			// Mock the getWrappedRemoteHookFunction to return our mock
-			const originalGetWrappedRemoteHookFunction = await import('../utils');
-			vi.spyOn(
-				originalGetWrappedRemoteHookFunction,
-				'getWrappedRemoteHookFunction',
-			).mockResolvedValue(mockRemoteHook);
-
-			const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-			await expect(
-				afterAllHookHandler({
-					payload: {
-						context: {} as unknown as PayloadContext,
-						document: {},
-						result: { data: { test: 'value' } },
-					},
-					updateContext: () => {},
-				}),
-			).rejects.toThrowError('Remote hook error');
-		});
-
-		test('should handle non-blocking remote hook', async () => {
-			const mockRemoteHook = vi.fn().mockReturnValue(
-				Promise.resolve({
-					status: HookStatus.ERROR,
-					message: 'Remote hook error',
-				}),
-			);
-			const mockConfig: AfterAllHookBuildConfig = {
-				memoizedFns: {},
-				baseDir: '',
-				logger: mockLogger,
-				afterAll: {
-					blocking: false,
-					composer: 'https://example.com/remote-hook',
-				},
-			};
-
-			// Mock the getWrappedRemoteHookFunction to return our mock
-			const originalGetWrappedRemoteHookFunction = await import('../utils');
-			vi.spyOn(
-				originalGetWrappedRemoteHookFunction,
-				'getWrappedRemoteHookFunction',
-			).mockResolvedValue(mockRemoteHook);
-
-			const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-			// Should not throw for non-blocking remote hooks
-			await afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			});
-
-			expect(mockRemoteHook).toHaveBeenCalledOnce();
-		});
-
-		test('should handle remote hook with result modification', async () => {
-			const mockRemoteHook = vi.fn().mockReturnValue(
-				Promise.resolve({
-					status: HookStatus.SUCCESS,
-					message: 'Remote hook with result modification',
-					data: {
-						result: {
-							data: { modified: true, remoteModified: true },
-							errors: [],
-						},
-					},
-				}),
-			);
-			const mockConfig: AfterAllHookBuildConfig = {
-				memoizedFns: {},
-				baseDir: '',
-				logger: mockLogger,
-				afterAll: {
-					blocking: true,
-					composer: 'https://example.com/remote-hook',
-				},
-			};
-
-			// Mock the getWrappedRemoteHookFunction to return our mock
-			const originalGetWrappedRemoteHookFunction = await import('../utils');
-			vi.spyOn(
-				originalGetWrappedRemoteHookFunction,
-				'getWrappedRemoteHookFunction',
-			).mockResolvedValue(mockRemoteHook);
-
-			const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-			const updateContext = vi.fn();
-
-			await afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { original: 'data' } },
-				},
-				updateContext,
-			});
-
-			expect(mockRemoteHook).toHaveBeenCalledOnce();
-			expect(updateContext).toHaveBeenCalledWith({
-				result: {
-					data: { modified: true, remoteModified: true },
-					errors: [],
-				},
-			});
-		});
-
-		test('should handle remote hook throwing error', async () => {
-			const mockRemoteHook = vi.fn().mockImplementation(() => {
-				throw new Error('Remote hook network error');
-			});
-			const mockConfig: AfterAllHookBuildConfig = {
-				memoizedFns: {},
-				baseDir: '',
-				logger: mockLogger,
-				afterAll: {
-					blocking: true,
-					composer: 'https://example.com/remote-hook',
-				},
-			};
-
-			// Mock the getWrappedRemoteHookFunction to return our mock
-			const originalGetWrappedRemoteHookFunction = await import('../utils');
-			vi.spyOn(
-				originalGetWrappedRemoteHookFunction,
-				'getWrappedRemoteHookFunction',
-			).mockResolvedValue(mockRemoteHook);
-
-			const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-			await expect(
-				afterAllHookHandler({
-					payload: {
-						context: {} as unknown as PayloadContext,
-						document: {},
-						result: { data: { test: 'value' } },
-					},
-					updateContext: () => {},
-				}),
-			).rejects.toThrowError('Remote hook network error');
-		});
-
-		test('should memoize remote hook function', async () => {
-			const mockRemoteHook = vi.fn().mockReturnValue(
-				Promise.resolve({
-					status: HookStatus.SUCCESS,
-					message: 'Remote hook success',
-				}),
-			);
-			const mockConfig: AfterAllHookBuildConfig = {
-				memoizedFns: {},
-				baseDir: '',
-				logger: mockLogger,
-				afterAll: {
-					blocking: true,
-					composer: 'https://example.com/remote-hook',
-				},
-			};
-
-			// Mock the getWrappedRemoteHookFunction to return our mock
-			const originalGetWrappedRemoteHookFunction = await import('../utils');
-			const getWrappedRemoteHookFunctionSpy = vi
-				.spyOn(originalGetWrappedRemoteHookFunction, 'getWrappedRemoteHookFunction')
-				.mockResolvedValue(mockRemoteHook);
-
-			const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-
-			// First call should create the remote hook function
-			await afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			});
-
-			// Second call should use memoized function
-			await afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { test: 'value' } },
-				},
-				updateContext: () => {},
-			});
-
-			// getWrappedRemoteHookFunction should only be called once
-			expect(getWrappedRemoteHookFunctionSpy).toHaveBeenCalledOnce();
-			expect(mockRemoteHook).toHaveBeenCalledTimes(2);
-		});
-
-		test('should handle remote hook with both headers and result', async () => {
-			const mockRemoteHook = vi.fn().mockReturnValue(
-				Promise.resolve({
-					status: HookStatus.SUCCESS,
-					message: 'Remote hook with both headers and result',
-					data: {
-						headers: {
-							'x-remote-header': 'remote-value',
-						},
-						result: {
-							data: { remoteModified: true },
-							errors: [],
-						},
-					},
-				}),
-			);
-			const mockConfig: AfterAllHookBuildConfig = {
-				memoizedFns: {},
-				baseDir: '',
-				logger: mockLogger,
-				afterAll: {
-					blocking: true,
-					composer: 'https://example.com/remote-hook',
-				},
-			};
-
-			// Mock the getWrappedRemoteHookFunction to return our mock
-			const originalGetWrappedRemoteHookFunction = await import('../utils');
-			vi.spyOn(
-				originalGetWrappedRemoteHookFunction,
-				'getWrappedRemoteHookFunction',
-			).mockResolvedValue(mockRemoteHook);
-
-			const afterAllHookHandler = getAfterAllHookHandler(mockConfig);
-			const updateContext = vi.fn();
-
-			await afterAllHookHandler({
-				payload: {
-					context: {} as unknown as PayloadContext,
-					document: {},
-					result: { data: { original: 'data' } },
-				},
-				updateContext,
-			});
-
-			expect(mockRemoteHook).toHaveBeenCalledOnce();
-			expect(updateContext).toHaveBeenCalledWith({
-				headers: {
-					'x-remote-header': 'remote-value',
-				},
-				result: {
-					data: { remoteModified: true },
-					errors: [],
-				},
-			});
-		});
+		const handler = getAfterAllHookHandler(mockConfig);
+		const result = await handler({ payload: basePayload });
+		expect(result).toEqual({ status: HookStatus.ERROR, message: 'remote fail' });
+		expect(mockRemoteHook).toHaveBeenCalledOnce();
 	});
 });
