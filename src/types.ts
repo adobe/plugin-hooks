@@ -17,6 +17,8 @@ export interface UserContext extends YogaInitialContext {
 	secrets?: Record<string, string>;
 }
 
+export type SourceHookConfig = Record<string, HookConfig[]>;
+
 export interface HookConfig {
 	blocking: boolean;
 	composer?: string;
@@ -26,6 +28,8 @@ export interface HookConfig {
 
 export interface MemoizedFns {
 	beforeAll?: HookFunction;
+	beforeSource?: HookFunction;
+	afterSource?: HookFunction;
 }
 
 export interface Module {
@@ -38,6 +42,14 @@ export type HookFunctionPayload = {
 	document: unknown;
 };
 
+export type SourceHookFunctionPayload = {
+	sourceName: string;
+	request: RequestInit;
+	operation: any;
+	response?: Response;
+	setResponse?: (response: Response) => void;
+};
+
 export interface PayloadContext {
 	request: Request;
 	params: GraphQLParams;
@@ -46,7 +58,7 @@ export interface PayloadContext {
 	secrets?: Record<string, string>;
 }
 
-export type HookFunction = (payload: HookFunctionPayload) => Promise<HookResponse> | HookResponse;
+export type HookFunction = (payload: HookFunctionPayload | SourceHookFunctionPayload) => Promise<HookResponse> | HookResponse;
 
 export interface HookResponse {
 	status: HookStatus;

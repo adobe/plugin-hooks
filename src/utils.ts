@@ -16,7 +16,7 @@ import type { ImportFn } from '@graphql-mesh/types';
 import { default as Timeout } from 'await-timeout';
 import makeCancellablePromise from 'make-cancellable-promise';
 import fetch from 'node-fetch';
-import { HookFunction, HookStatus, Module, HookResponse, HookFunctionPayload } from './types';
+import { HookFunction, HookStatus, Module, HookResponse, HookFunctionPayload, SourceHookFunctionPayload } from './types';
 
 export interface MetaConfig {
 	logger: YogaLogger;
@@ -91,7 +91,7 @@ export async function getWrappedRemoteHookFunction(
 	url: string,
 	metaConfig: MetaConfig,
 ): Promise<HookFunction> {
-	return async (data: HookFunctionPayload): Promise<HookResponse> => {
+	return async (data: HookFunctionPayload | SourceHookFunctionPayload): Promise<HookResponse> => {
 		const { logger, blocking } = metaConfig;
 		try {
 			logger.debug('Invoking remote fn %s', url);
@@ -161,7 +161,7 @@ export async function getWrappedLocalModuleHookFunction(
 				`Unable to invoke local module function ${composerFn}`,
 		});
 	}
-	return (data: HookFunctionPayload) => {
+	return (data: HookFunctionPayload | SourceHookFunctionPayload) => {
 		return new Promise<HookResponse>((resolve, reject: (reason?: HookResponse) => void) => {
 			try {
 				if (!composerFn) {
@@ -246,7 +246,7 @@ export async function getWrappedLocalHookFunction(
 				`Unable to invoke local function ${composerFnPath}`,
 		});
 	}
-	return (data: HookFunctionPayload) => {
+	return (data: HookFunctionPayload | SourceHookFunctionPayload) => {
 		return new Promise<HookResponse>((resolve, reject: (reason?: HookResponse) => void) => {
 			try {
 				if (!composerFn) {
