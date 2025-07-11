@@ -10,9 +10,9 @@ OF ANY KIND, either express or implied. See the License for the specific languag
 governing permissions and limitations under the License.
 */
 
-import { GraphQLError } from 'graphql/error';
-import getBeforeAllHookHandler, { UpdateContextFn } from './handleBeforeAllHooks';
-import getAfterAllHookHandler from './handleAfterAllHooks';
+import { UpdateContextFn } from './handleBeforeAllHooks';
+import { createBeforeAllHookHandler, executeBeforeAllHook } from './beforeAllExecutor';
+import { createAfterAllHookHandler, executeAfterAllHook } from './afterAllExecutor';
 import type {
 	HookConfig,
 	MemoizedFns,
@@ -43,20 +43,10 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 		}
 		const memoizedFns: MemoizedFns = {};
 		const beforeAllHookHandler = beforeAll
-			? getBeforeAllHookHandler({
-					baseDir,
-					beforeAll,
-					logger,
-					memoizedFns,
-				})
+			? createBeforeAllHookHandler(beforeAll, baseDir, logger, memoizedFns)
 			: null;
 		const afterAllHookHandler = afterAll
-			? getAfterAllHookHandler({
-					baseDir,
-					afterAll,
-					logger,
-					memoizedFns,
-				})
+			? createAfterAllHookHandler(afterAll, baseDir, logger, memoizedFns)
 			: null;
 		return {
 			async onExecute({ args, setResultAndStopExecution, extendContext }) {
@@ -64,7 +54,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				const { document, contextValue: context } = args;
 				const { params, request } = context || {};
 				const headers = Object.fromEntries(request.headers.entries());
-				const secrets = 'secrets' in context ? context.secrets : {};
+				const secrets = ('secrets' in context ? context.secrets : {}) as Record<string, string>;
 				let body = {};
 				if (request && request.body) {
 					body = request.body;
@@ -93,29 +83,22 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				}
 
 				/**
-				 * Start Before All Hook
+				 * Execute Before All Hook
 				 */
 				if (beforeAllHookHandler) {
 					try {
-						const payload = {
-							context: { params, request, body, headers, secrets },
+						await executeBeforeAllHook(beforeAllHookHandler, {
+							params,
+							request,
+							body,
+							headers,
+							secrets,
 							document,
-						};
-						await beforeAllHookHandler({ payload, updateContext });
-					} catch (err: unknown) {
-						setResultAndStopExecution({
-							data: null,
-							errors: [
-								new GraphQLError(
-									(err instanceof Error && err.message) || 'Error while executing hooks',
-									{
-										extensions: {
-											code: 'PLUGIN_HOOKS_ERROR',
-										},
-									},
-								),
-							],
+							updateContext,
+							setResultAndStopExecution,
 						});
+					} catch {
+						// Error already handled by executeBeforeAllHook, just return to stop execution
 						return {};
 					}
 				}
@@ -127,54 +110,22 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						}: {
 							result: { data?: GraphQLData; errors?: GraphQLErrorType[] };
 						}) => {
-							try {
-								// Create payload with the execution result
-								const payload = {
-									context: { params, request, body, headers, secrets },
-									document,
-									result, // This is the GraphQL execution result
-								};
-
-								// Execute the afterAll hook and get the response
-								const hookResponse = await afterAllHookHandler({ payload });
-
-								logger.debug('onExecuteDone executed successfully for afterAll hook');
-
-								// Apply the modified result if hook returned one in data.result format
-								if (hookResponse?.data?.result && afterAll?.blocking) {
-									setResultAndStopExecution({
-										data: hookResponse.data.result.data || result.data,
-										errors: hookResponse.data.result.errors || result.errors,
-									});
-								}
-							} catch (err: unknown) {
-								logger.error('Error in onExecuteDone for afterAll hook:', err);
-
-								// For blocking hooks, throw the error to propagate it to the GraphQL response
-								if (afterAll?.blocking) {
-									setResultAndStopExecution({
-										data: null,
-										errors: [
-											new GraphQLError(
-												(err instanceof Error && err.message) ||
-													'Error while executing afterAll hook 222',
-												{
-													extensions: {
-														code: 'AFTER_ALL_HOOK_ERROR',
-													},
-												},
-											),
-										],
-									});
-								}
-							}
+							await executeAfterAllHook(afterAllHookHandler, {
+								params,
+								request,
+								body,
+								headers,
+								secrets,
+								document,
+								result,
+								setResultAndStopExecution,
+								logger,
+								afterAll: afterAll!,
+							});
 						},
 					};
 				}
 
-				/**
-				 * End Before All Hook
-				 */
 				return {};
 			},
 		};
