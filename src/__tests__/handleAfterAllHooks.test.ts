@@ -11,7 +11,7 @@ governing permissions and limitations under the License.
 */
 
 import getAfterAllHookHandler, { AfterAllHookBuildConfig } from '../handleAfterAllHooks';
-import { PayloadContext, HookResponse, HookStatus } from '../types';
+import { PayloadContext, HookResponse, HookStatus, GraphQLResult } from '../types';
 import { mockLogger } from '../__mocks__/yogaLogger';
 import { describe, expect, test, vi, beforeEach } from 'vitest';
 
@@ -39,6 +39,12 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 	beforeEach(async () => {
 		vi.clearAllMocks();
 		utils = await import('../utils');
+		// Reset all mocked functions
+		vi.mocked(utils.isModuleFn).mockReset();
+		vi.mocked(utils.isRemoteFn).mockReset();
+		vi.mocked(utils.getWrappedLocalHookFunction).mockReset();
+		vi.mocked(utils.getWrappedLocalModuleHookFunction).mockReset();
+		vi.mocked(utils.getWrappedRemoteHookFunction).mockReset();
 	});
 
 	test('calls hook and returns response (blocking, success)', async () => {
@@ -254,5 +260,123 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 		const result = await handler({ payload: basePayload });
 		expect(result).toEqual({ status: HookStatus.ERROR, message: 'remote fail' });
 		expect(mockRemoteHook).toHaveBeenCalledOnce();
+	});
+
+	test('handles case-insensitive status comparison', async () => {
+		vi.mocked(utils.isModuleFn).mockReturnValue(true);
+		const mockResponse: HookResponse = { status: 'success' as HookStatus, message: 'ok' };
+		const mockHook = vi.fn().mockResolvedValue(mockResponse);
+		vi.mocked(utils.getWrappedLocalModuleHookFunction).mockResolvedValue(mockHook);
+		vi.mocked(utils.getWrappedLocalHookFunction).mockResolvedValue(mockHook);
+		const mockConfig: AfterAllHookBuildConfig = {
+			memoizedFns: {},
+			baseDir: '',
+			logger: mockLogger,
+			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
+		};
+		const handler = getAfterAllHookHandler(mockConfig);
+		const result = await handler({ payload: basePayload });
+		expect(result).toEqual(mockResponse);
+		expect(mockHook).toHaveBeenCalledOnce();
+	});
+
+	test('handles error with non-Error object', async () => {
+		vi.mocked(utils.isModuleFn).mockReturnValue(true);
+		const mockHook = vi.fn().mockImplementation(() => {
+			throw { message: 'custom error object' };
+		});
+		vi.mocked(utils.getWrappedLocalModuleHookFunction).mockResolvedValue(mockHook);
+		vi.mocked(utils.getWrappedLocalHookFunction).mockResolvedValue(mockHook);
+		const mockConfig: AfterAllHookBuildConfig = {
+			memoizedFns: {},
+			baseDir: '',
+			logger: mockLogger,
+			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
+		};
+		const handler = getAfterAllHookHandler(mockConfig);
+		await expect(handler({ payload: basePayload })).rejects.toThrow('custom error object');
+	});
+
+	test('handles error without message property', async () => {
+		vi.mocked(utils.isModuleFn).mockReturnValue(true);
+		const mockHook = vi.fn().mockImplementation(() => {
+			throw 'string error';
+		});
+		vi.mocked(utils.getWrappedLocalModuleHookFunction).mockResolvedValue(mockHook);
+		vi.mocked(utils.getWrappedLocalHookFunction).mockResolvedValue(mockHook);
+		const mockConfig: AfterAllHookBuildConfig = {
+			memoizedFns: {},
+			baseDir: '',
+			logger: mockLogger,
+			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
+		};
+		const handler = getAfterAllHookHandler(mockConfig);
+		await expect(handler({ payload: basePayload })).rejects.toThrow(
+			'Error while invoking afterAll hook',
+		);
+	});
+
+	test('handles local function with composer path', async () => {
+		vi.mocked(utils.isModuleFn).mockReturnValue(false);
+		vi.mocked(utils.isRemoteFn).mockReturnValue(false);
+		const mockResponse: HookResponse = { status: HookStatus.SUCCESS, message: 'local ok' };
+		const mockHook = vi.fn().mockResolvedValue(mockResponse);
+		vi.mocked(utils.getWrappedLocalHookFunction).mockResolvedValue(mockHook);
+		const mockConfig: AfterAllHookBuildConfig = {
+			memoizedFns: {},
+			baseDir: '',
+			logger: mockLogger,
+			afterAll: { blocking: true, composer: './local-hook.js' },
+		};
+		const handler = getAfterAllHookHandler(mockConfig);
+		const result = await handler({ payload: basePayload });
+		expect(result).toEqual(mockResponse);
+		expect(mockHook).toHaveBeenCalledOnce();
+	});
+
+	test('handles payload with null result', async () => {
+		vi.mocked(utils.isModuleFn).mockReturnValue(true);
+		const mockResponse: HookResponse = { status: HookStatus.SUCCESS, message: 'ok' };
+		const mockHook = vi.fn().mockResolvedValue(mockResponse);
+		vi.mocked(utils.getWrappedLocalModuleHookFunction).mockResolvedValue(mockHook);
+		vi.mocked(utils.getWrappedLocalHookFunction).mockResolvedValue(mockHook);
+		const mockConfig: AfterAllHookBuildConfig = {
+			memoizedFns: {},
+			baseDir: '',
+			logger: mockLogger,
+			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
+		};
+		const handler = getAfterAllHookHandler(mockConfig);
+		const payloadWithNullResult = {
+			context: {} as unknown as PayloadContext,
+			document: {},
+			result: null as unknown as GraphQLResult,
+		};
+		const result = await handler({ payload: payloadWithNullResult });
+		expect(result).toEqual(mockResponse);
+		expect(mockHook).toHaveBeenCalledWith(payloadWithNullResult);
+	});
+
+	test('handles payload with undefined result', async () => {
+		vi.mocked(utils.isModuleFn).mockReturnValue(true);
+		const mockResponse: HookResponse = { status: HookStatus.SUCCESS, message: 'ok' };
+		const mockHook = vi.fn().mockResolvedValue(mockResponse);
+		vi.mocked(utils.getWrappedLocalModuleHookFunction).mockResolvedValue(mockHook);
+		vi.mocked(utils.getWrappedLocalHookFunction).mockResolvedValue(mockHook);
+		const mockConfig: AfterAllHookBuildConfig = {
+			memoizedFns: {},
+			baseDir: '',
+			logger: mockLogger,
+			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
+		};
+		const handler = getAfterAllHookHandler(mockConfig);
+		const payloadWithUndefinedResult = {
+			context: {} as unknown as PayloadContext,
+			document: {},
+			result: undefined,
+		};
+		const result = await handler({ payload: payloadWithUndefinedResult });
+		expect(result).toEqual(mockResponse);
+		expect(mockHook).toHaveBeenCalledWith(payloadWithUndefinedResult);
 	});
 });
