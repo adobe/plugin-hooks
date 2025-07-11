@@ -11,13 +11,13 @@ governing permissions and limitations under the License.
 */
 
 import { GraphQLParams, YogaInitialContext } from 'graphql-yoga';
-import type { GraphQLError } from 'graphql/error';
+import type { GraphQLError, ExecutionResult } from 'graphql';
 
 // Re-export GraphQLError from graphql package
 export type { GraphQLError };
 
-// Define types for GraphQL result data
-export type GraphQLData = Record<string, unknown> | null;
+// Use the standard GraphQL data type from ExecutionResult
+export type GraphQLData = ExecutionResult['data'];
 
 // Define the GraphQL execution result type
 export type GraphQLResult = {
@@ -78,3 +78,6 @@ export enum HookStatus {
 	SUCCESS = 'SUCCESS',
 	ERROR = 'ERROR',
 }
+
+// Export error codes for uniform error handling
+export { PLUGIN_HOOKS_ERROR_CODES, type PluginHooksErrorCode } from './errorCodes';

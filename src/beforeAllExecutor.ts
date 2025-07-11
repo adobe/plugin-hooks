@@ -14,6 +14,7 @@ import { GraphQLError } from 'graphql/error';
 import getBeforeAllHookHandler, { UpdateContextFn } from './handleBeforeAllHooks';
 import type { HookConfig, MemoizedFns, GraphQLResult } from './types';
 import type { YogaLogger, GraphQLParams } from 'graphql-yoga';
+import { PLUGIN_HOOKS_ERROR_CODES } from './errorCodes';
 
 export interface BeforeAllExecutionContext {
 	params: GraphQLParams;
@@ -53,7 +54,7 @@ export async function executeBeforeAllHook(
 			errors: [
 				new GraphQLError((err instanceof Error && err.message) || 'Error while executing hooks', {
 					extensions: {
-						code: 'PLUGIN_HOOKS_ERROR',
+						code: PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_BEFORE_ALL,
 					},
 				}),
 			],

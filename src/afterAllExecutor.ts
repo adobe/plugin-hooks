@@ -20,6 +20,7 @@ import type {
 	GraphQLResult,
 } from './types';
 import type { YogaLogger, GraphQLParams } from 'graphql-yoga';
+import { PLUGIN_HOOKS_ERROR_CODES } from './errorCodes';
 
 export interface AfterAllExecutionContext {
 	params: GraphQLParams;
@@ -83,7 +84,7 @@ export async function executeAfterAllHook(
 						(err instanceof Error && err.message) || 'Error while executing afterAll hook',
 						{
 							extensions: {
-								code: 'AFTER_ALL_HOOK_ERROR',
+								code: PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_AFTER_ALL,
 							},
 						},
 					),
