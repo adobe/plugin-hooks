@@ -21,6 +21,7 @@ import {
 	getWrappedLocalModuleHookFunction,
 	getWrappedRemoteHookFunction,
 } from './utils';
+import { handleHookExecutionError, handleHookHandlerError } from './utils/errorHandler';
 
 export interface BeforeAllHookBuildConfig {
 	baseDir: string;
@@ -92,20 +93,11 @@ const getBeforeAllHookHandler =
 						}
 					}
 				} catch (err: unknown) {
-					logger.error('Error while invoking beforeAll hook %o', err);
-					if (err instanceof Error) {
-						throw new Error(err.message);
-					}
-					if (err && typeof err === 'object' && 'message' in err) {
-						throw new Error((err as { message?: string }).message);
-					}
-					throw new Error('Error while invoking beforeAll hook');
+					handleHookExecutionError(err, logger, 'beforeAll');
 				}
 			}
 		} catch (err: unknown) {
-			throw new Error(
-				(err instanceof Error && err.message) || 'Error while invoking beforeAll hook',
-			);
+			handleHookHandlerError(err, 'beforeAll');
 		}
 	};
 

@@ -28,6 +28,7 @@ import {
 	getWrappedLocalModuleHookFunction,
 	getWrappedRemoteHookFunction,
 } from './utils';
+import { handleHookExecutionError, handleHookHandlerError } from './utils/errorHandler';
 
 export interface AfterAllHookBuildConfig {
 	baseDir: string;
@@ -91,20 +92,11 @@ const getAfterAllHookHandler =
 					}
 					return hooksResponse;
 				} catch (err: unknown) {
-					logger.error('Error while invoking afterAll hook %o', err);
-					if (err instanceof Error) {
-						throw new Error(err.message);
-					}
-					if (err && typeof err === 'object' && 'message' in err) {
-						throw new Error((err as { message?: string }).message);
-					}
-					throw new Error('Error while invoking afterAll hook');
+					handleHookExecutionError(err, logger, 'afterAll');
 				}
 			}
 		} catch (err: unknown) {
-			throw new Error(
-				(err instanceof Error && err.message) || 'Error while invoking afterAll hook',
-			);
+			handleHookHandlerError(err, 'afterAll');
 		}
 	};
 
