@@ -11,6 +11,19 @@ governing permissions and limitations under the License.
 */
 
 import { GraphQLParams, YogaInitialContext } from 'graphql-yoga';
+import type { GraphQLError, ExecutionResult } from 'graphql';
+
+// Re-export GraphQLError from graphql package
+export type { GraphQLError };
+
+// Use the standard GraphQL data type from ExecutionResult
+export type GraphQLData = ExecutionResult['data'];
+
+// Define the GraphQL execution result type
+export type GraphQLResult = {
+	data?: GraphQLData;
+	errors?: GraphQLError[];
+};
 
 export interface UserContext extends YogaInitialContext {
 	headers?: Record<string, string>;
@@ -26,6 +39,7 @@ export interface HookConfig {
 
 export interface MemoizedFns {
 	beforeAll?: HookFunction;
+	afterAll?: HookFunction;
 }
 
 export interface Module {
@@ -36,6 +50,7 @@ export interface Module {
 export type HookFunctionPayload = {
 	context: PayloadContext;
 	document: unknown;
+	result?: GraphQLResult;
 };
 
 export interface PayloadContext {
@@ -55,6 +70,7 @@ export interface HookResponse {
 		headers?: {
 			[headerName: string]: string;
 		};
+		result?: GraphQLResult;
 	};
 }
 
@@ -62,3 +78,6 @@ export enum HookStatus {
 	SUCCESS = 'SUCCESS',
 	ERROR = 'ERROR',
 }
+
+// Export error codes for uniform error handling
+export { PLUGIN_HOOKS_ERROR_CODES, type PluginHooksErrorCode } from './errorCodes';
