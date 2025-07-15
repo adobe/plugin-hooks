@@ -11,24 +11,9 @@ governing permissions and limitations under the License.
 */
 
 import type { YogaLogger } from 'graphql-yoga';
-import {
-	HookConfig,
-	HookFunction,
-	HookFunctionPayload,
-	HookStatus,
-	MemoizedFns,
-	HookResponse,
-} from './types';
-//@ts-expect-error The dynamic import is a workaround for cjs
-import importFn from './dynamicImport';
-import {
-	isModuleFn,
-	isRemoteFn,
-	getWrappedLocalHookFunction,
-	getWrappedLocalModuleHookFunction,
-	getWrappedRemoteHookFunction,
-} from './utils';
+import { HookConfig, HookFunctionPayload, HookStatus, MemoizedFns, HookResponse } from './types';
 import { handleHookExecutionError, handleHookHandlerError } from './utils/errorHandler';
+import { resolveHookFunction } from './utils/hookResolver';
 
 export interface AfterAllHookBuildConfig {
 	baseDir: string;
@@ -47,42 +32,15 @@ const getAfterAllHookHandler =
 		try {
 			const { memoizedFns, baseDir, logger, afterAll } = fnBuildConfig;
 			const { payload } = fnExecConfig;
-			let afterAllFn: HookFunction | undefined;
 
-			if (!memoizedFns.afterAll) {
-				if (isRemoteFn(afterAll.composer || '')) {
-					// Invoke remote endpoint
-					logger.debug('Invoking remote function %s', afterAll.composer);
-					afterAllFn = await getWrappedRemoteHookFunction(afterAll.composer!, {
-						baseDir,
-						importFn,
-						logger,
-						blocking: afterAll.blocking,
-					});
-				} else if (isModuleFn(afterAll)) {
-					// Invoke function from imported module. This handles bundled scenarios such as local development where the
-					// module needs to be known statically at build time.
-					logger.debug('Invoking local module function %s %s', afterAll.module, afterAll.fn);
-					afterAllFn = await getWrappedLocalModuleHookFunction(afterAll.module!, afterAll.fn!, {
-						baseDir,
-						importFn,
-						logger,
-						blocking: afterAll.blocking,
-					});
-				} else {
-					// Invoke local function at runtime
-					logger.debug('Invoking local function %s', afterAll.composer);
-					afterAllFn = await getWrappedLocalHookFunction(afterAll.composer!, {
-						baseDir,
-						importFn,
-						logger,
-						blocking: afterAll.blocking,
-					});
-				}
-				memoizedFns.afterAll = afterAllFn;
-			} else {
-				afterAllFn = memoizedFns.afterAll;
-			}
+			// Resolve hook function using shared utility
+			const afterAllFn = await resolveHookFunction({
+				hookConfig: afterAll,
+				hookType: 'afterAll',
+				baseDir,
+				logger,
+				memoizedFns,
+			});
 
 			if (afterAllFn) {
 				try {
