@@ -56,7 +56,14 @@ type HooksPlugin = Plugin<YogaInitialContext, Record<string, unknown>, UserConte
 		info,
 		options,
 	}: OnFetchHookPayload<MeshPluginContext>) => Promise<
-		void | ((response: Response, setResponse: (response: Response) => void) => Promise<void>)
+		| void
+		| (({
+				response,
+				setResponse,
+		  }: {
+				response: Response;
+				setResponse: (response: Response) => void;
+		  }) => Promise<void>)
 	>;
 };
 
@@ -169,7 +176,13 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						payload,
 					});
 				}
-				return async (response: Response, setResponse: (response: Response) => void) => {
+				return async ({
+					response,
+					setResponse,
+				}: {
+					response: Response;
+					setResponse: (response: Response) => void;
+				}) => {
 					const afterSourceHookHandler = getAfterSourceHookHandler({
 						baseDir,
 						afterSource: afterSourceHooks,
@@ -183,6 +196,8 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						response,
 						setResponse,
 					};
+					console.log('response ', response);
+					console.log('setResponse ', setResponse);
 					await afterSourceHookHandler({
 						payload,
 					});
