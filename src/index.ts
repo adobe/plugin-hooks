@@ -26,8 +26,8 @@ interface PluginConfig {
 	baseDir: string;
 	logger: YogaLogger;
 	beforeAll?: HookConfig;
-	beforeSource?: SourceHookConfig
-	afterSource?: SourceHookConfig
+	beforeSource?: SourceHookConfig;
+	afterSource?: SourceHookConfig;
 }
 
 type Options = {
@@ -39,7 +39,7 @@ type Options = {
 type MeshPluginContext = {
 	url: string;
 	options: Options;
-	context: Record<string, any>;
+	context: Record<string, unknown>;
 	info: GraphQLResolveInfo;
 	fetchFn: MeshFetch;
 	setFetchFn: (fetchFn: MeshFetch) => void;
@@ -55,15 +55,16 @@ type HooksPlugin = Plugin<YogaInitialContext, Record<string, unknown>, UserConte
 		context,
 		info,
 		options,
-	}: OnFetchHookPayload<MeshPluginContext>) => Promise<any>;
+	}: OnFetchHookPayload<MeshPluginContext>) => Promise<
+		void | ((response: Response, setResponse: (response: Response) => void) => Promise<void>)
+	>;
 };
 
 export default async function hooksPlugin(config: PluginConfig): Promise<HooksPlugin> {
 	try {
-		const { beforeAll, beforeSource, baseDir, logger } = config;
+		const { beforeAll, baseDir, logger } = config;
 		const memoizedFns: MemoizedFns = {};
 
-		const beforeSourceHooks: Record<string, ((info: GraphQLResolveInfo, options: Options) => void)[]> = {};
 		return {
 			async onExecute({ args, setResultAndStopExecution, extendContext }) {
 				if (!beforeAll) {
@@ -137,14 +138,13 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				 */
 				return {};
 			},
-			async onFetch({ url, context, info, options }) {
+			async onFetch({ info, options }) {
 				if (!info || !info.operation || (!config.afterSource && !config.beforeSource)) {
 					return;
 				}
 				// Ignore introspection queries
 				const operationName = info.operation.name?.value;
-				const isIntrospectionQuery =
-					operationName === 'IntrospectionQuery'
+				const isIntrospectionQuery = operationName === 'IntrospectionQuery';
 				if (isIntrospectionQuery) {
 					return;
 				}
@@ -154,11 +154,11 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				if (beforeSourceHooks) {
 					const beforeSourceHookHandler = getBeforeSourceHookHandler({
 						baseDir,
-						beforeSource:  beforeSourceHooks,
+						beforeSource: beforeSourceHooks,
 						logger,
 						memoizedFns,
 					});
-					
+
 					const payload = {
 						request: options,
 						operation: info.operation,
@@ -166,13 +166,13 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 					};
 
 					await beforeSourceHookHandler({
-						payload
+						payload,
 					});
 				}
 				return async (response: Response, setResponse: (response: Response) => void) => {
 					const afterSourceHookHandler = getAfterSourceHookHandler({
 						baseDir,
-						afterSource:  afterSourceHooks,
+						afterSource: afterSourceHooks,
 						logger,
 						memoizedFns,
 					});
@@ -181,7 +181,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						operation: info.operation,
 						sourceName,
 						response,
-						setResponse
+						setResponse,
 					};
 					await afterSourceHookHandler({
 						payload,

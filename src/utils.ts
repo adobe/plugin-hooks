@@ -16,7 +16,14 @@ import type { ImportFn } from '@graphql-mesh/types';
 import { default as Timeout } from 'await-timeout';
 import makeCancellablePromise from 'make-cancellable-promise';
 import fetch from 'node-fetch';
-import { HookFunction, HookStatus, Module, HookResponse, HookFunctionPayload, SourceHookFunctionPayload } from './types';
+import {
+	HookFunction,
+	HookStatus,
+	Module,
+	HookResponse,
+	HookFunctionPayload,
+	SourceHookFunctionPayload,
+} from './types';
 
 export interface MetaConfig {
 	logger: YogaLogger;

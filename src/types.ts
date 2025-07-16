@@ -10,6 +10,7 @@ OF ANY KIND, either express or implied. See the License for the specific languag
 governing permissions and limitations under the License.
 */
 
+import { OperationDefinitionNode } from 'graphql';
 import { GraphQLParams, YogaInitialContext } from 'graphql-yoga';
 
 export interface UserContext extends YogaInitialContext {
@@ -28,8 +29,8 @@ export interface HookConfig {
 
 export interface MemoizedFns {
 	beforeAll?: HookFunction;
-	beforeSource?: HookFunction;
-	afterSource?: HookFunction;
+	beforeSource?: (HookFunction | null)[];
+	afterSource?: (HookFunction | null)[];
 }
 
 export interface Module {
@@ -45,7 +46,7 @@ export type HookFunctionPayload = {
 export type SourceHookFunctionPayload = {
 	sourceName: string;
 	request: RequestInit;
-	operation: any;
+	operation: OperationDefinitionNode;
 	response?: Response;
 	setResponse?: (response: Response) => void;
 };
@@ -58,7 +59,9 @@ export interface PayloadContext {
 	secrets?: Record<string, string>;
 }
 
-export type HookFunction = (payload: HookFunctionPayload | SourceHookFunctionPayload) => Promise<HookResponse> | HookResponse;
+export type HookFunction = (
+	payload: HookFunctionPayload | SourceHookFunctionPayload,
+) => Promise<HookResponse> | HookResponse;
 
 export interface HookResponse {
 	status: HookStatus;
