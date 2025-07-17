@@ -196,8 +196,6 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						response,
 						setResponse,
 					};
-					console.log('response ', response);
-					console.log('setResponse ', setResponse);
 					await afterSourceHookHandler({
 						payload,
 					});
