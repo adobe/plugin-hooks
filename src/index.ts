@@ -78,10 +78,15 @@ type HooksPlugin = Plugin<YogaInitialContext, Record<string, unknown>, UserConte
 
 export default async function hooksPlugin(config: PluginConfig): Promise<HooksPlugin> {
 	try {
-		const { beforeAll, afterAll, baseDir, logger } = config;
+		const { beforeAll, afterAll, beforeSource, afterSource, baseDir, logger } = config;
 
-		if (!beforeAll && !afterAll) {
-			return { onExecute: async () => ({}) };
+		// Check if any hooks are configured
+		const hasAnyHooks = beforeAll || afterAll || beforeSource || afterSource;
+		if (!hasAnyHooks) {
+			return {
+				onExecute: async () => ({}),
+				onFetch: async () => {},
+			};
 		}
 		const memoizedFns: MemoizedFns = {};
 		const beforeAllHookHandler = beforeAll
@@ -92,9 +97,6 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 			: null;
 		return {
 			async onExecute({ args, setResultAndStopExecution, extendContext }) {
-				if (!beforeAll) {
-					return;
-				}
 				const query = args.contextValue?.params?.query;
 				const { document, contextValue: context } = args;
 				const { params, request } = context || {};
