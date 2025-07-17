@@ -10,9 +10,16 @@ OF ANY KIND, either express or implied. See the License for the specific languag
 governing permissions and limitations under the License.
 */
 
-import { GraphQLError } from 'graphql/error';
-import getBeforeAllHookHandler, { UpdateContextFn } from './handleBeforeAllHooks';
-import type { HookConfig, MemoizedFns, UserContext } from './types';
+import { UpdateContextFn } from './handleBeforeAllHooks';
+import { createBeforeAllHookHandler, executeBeforeAllHook } from './beforeAllExecutor';
+import { createAfterAllHookHandler, executeAfterAllHook } from './afterAllExecutor';
+import type {
+	HookConfig,
+	MemoizedFns,
+	UserContext,
+	GraphQLData,
+	GraphQLError as GraphQLErrorType,
+} from './types';
 import type { YogaLogger, Plugin, YogaInitialContext } from 'graphql-yoga';
 
 // Export types for developer experience working w/ plugins
@@ -22,30 +29,32 @@ interface PluginConfig {
 	baseDir: string;
 	logger: YogaLogger;
 	beforeAll?: HookConfig;
+	afterAll?: HookConfig;
 }
 
 type HooksPlugin = Plugin<YogaInitialContext, Record<string, unknown>, UserContext>;
 
 export default async function hooksPlugin(config: PluginConfig): Promise<HooksPlugin> {
 	try {
-		const { beforeAll, baseDir, logger } = config;
-		if (!beforeAll) {
+		const { beforeAll, afterAll, baseDir, logger } = config;
+
+		if (!beforeAll && !afterAll) {
 			return { onExecute: async () => ({}) };
 		}
 		const memoizedFns: MemoizedFns = {};
-		const beforeAllHookHandler = getBeforeAllHookHandler({
-			baseDir,
-			beforeAll,
-			logger,
-			memoizedFns,
-		});
+		const beforeAllHookHandler = beforeAll
+			? createBeforeAllHookHandler(beforeAll, baseDir, logger, memoizedFns)
+			: null;
+		const afterAllHookHandler = afterAll
+			? createAfterAllHookHandler(afterAll, baseDir, logger, memoizedFns)
+			: null;
 		return {
 			async onExecute({ args, setResultAndStopExecution, extendContext }) {
 				const query = args.contextValue?.params?.query;
 				const { document, contextValue: context } = args;
 				const { params, request } = context || {};
 				const headers = Object.fromEntries(request.headers.entries());
-				const secrets = 'secrets' in context ? context.secrets : {};
+				const secrets = ('secrets' in context ? context.secrets : {}) as Record<string, string>;
 				let body = {};
 				if (request && request.body) {
 					body = request.body;
@@ -74,33 +83,49 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				}
 
 				/**
-				 * Start Before All Hook
+				 * Execute Before All Hook
 				 */
-				try {
-					const payload = {
-						context: { params, request, body, headers, secrets },
-						document,
-					};
-					await beforeAllHookHandler({ payload, updateContext });
-				} catch (err: unknown) {
-					setResultAndStopExecution({
-						data: null,
-						errors: [
-							new GraphQLError(
-								(err instanceof Error && err.message) || 'Error while executing hooks',
-								{
-									extensions: {
-										code: 'PLUGIN_HOOKS_ERROR',
-									},
-								},
-							),
-						],
-					});
+				if (beforeAllHookHandler) {
+					try {
+						await executeBeforeAllHook(beforeAllHookHandler, {
+							params,
+							request,
+							body,
+							headers,
+							secrets,
+							document,
+							updateContext,
+							setResultAndStopExecution,
+						});
+					} catch {
+						// Error already handled by executeBeforeAllHook, just return to stop execution
+						return {};
+					}
 				}
 
-				/**
-				 * End Before All Hook
-				 */
+				if (afterAllHookHandler) {
+					return {
+						onExecuteDone: async ({
+							result,
+						}: {
+							result: { data?: GraphQLData; errors?: GraphQLErrorType[] };
+						}) => {
+							await executeAfterAllHook(afterAllHookHandler, {
+								params,
+								request,
+								body,
+								headers,
+								secrets,
+								document,
+								result,
+								setResultAndStopExecution,
+								logger,
+								afterAll: afterAll!,
+							});
+						},
+					};
+				}
+
 				return {};
 			},
 		};
