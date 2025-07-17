@@ -11,16 +11,9 @@ governing permissions and limitations under the License.
 */
 
 import type { YogaLogger } from 'graphql-yoga';
-import { HookConfig, HookFunction, HookFunctionPayload, HookStatus, MemoizedFns } from './types';
-//@ts-expect-error The dynamic import is a workaround for cjs
-import importFn from './dynamicImport';
-import {
-	isModuleFn,
-	isRemoteFn,
-	getWrappedLocalHookFunction,
-	getWrappedLocalModuleHookFunction,
-	getWrappedRemoteHookFunction,
-} from './utils';
+import { HookConfig, HookFunctionPayload, HookStatus, MemoizedFns } from './types';
+import { handleHookExecutionError, handleHookHandlerError } from './utils/errorHandler';
+import { resolveHookFunction } from './utils/hookResolver';
 
 export interface BeforeAllHookBuildConfig {
 	baseDir: string;
@@ -42,42 +35,15 @@ const getBeforeAllHookHandler =
 		try {
 			const { memoizedFns, baseDir, logger, beforeAll } = fnBuildConfig;
 			const { payload, updateContext } = fnExecConfig;
-			let beforeAllFn: HookFunction | undefined;
 
-			if (!memoizedFns.beforeAll) {
-				if (isRemoteFn(beforeAll.composer || '')) {
-					// Invoke remote endpoint
-					logger.debug('Invoking remote function %s', beforeAll.composer);
-					beforeAllFn = await getWrappedRemoteHookFunction(beforeAll.composer!, {
-						baseDir,
-						importFn,
-						logger,
-						blocking: beforeAll.blocking,
-					});
-				} else if (isModuleFn(beforeAll)) {
-					// Invoke function from imported module. This handles bundled scenarios such as local development where the
-					// module needs to be known statically at build time.
-					logger.debug('Invoking local module function %s %s', beforeAll.module, beforeAll.fn);
-					beforeAllFn = await getWrappedLocalModuleHookFunction(beforeAll.module!, beforeAll.fn!, {
-						baseDir,
-						importFn,
-						logger,
-						blocking: beforeAll.blocking,
-					});
-				} else {
-					// Invoke local function at runtime
-					logger.debug('Invoking local function %s', beforeAll.composer);
-					beforeAllFn = await getWrappedLocalHookFunction(beforeAll.composer!, {
-						baseDir,
-						importFn,
-						logger,
-						blocking: beforeAll.blocking,
-					});
-				}
-				memoizedFns.beforeAll = beforeAllFn;
-			} else {
-				beforeAllFn = memoizedFns.beforeAll;
-			}
+			// Resolve hook function using shared utility
+			const beforeAllFn = await resolveHookFunction({
+				hookConfig: beforeAll,
+				hookType: 'beforeAll',
+				baseDir,
+				logger,
+				memoizedFns,
+			});
 
 			if (beforeAllFn) {
 				try {
@@ -92,20 +58,11 @@ const getBeforeAllHookHandler =
 						}
 					}
 				} catch (err: unknown) {
-					logger.error('Error while invoking beforeAll hook %o', err);
-					if (err instanceof Error) {
-						throw new Error(err.message);
-					}
-					if (err && typeof err === 'object' && 'message' in err) {
-						throw new Error((err as { message?: string }).message);
-					}
-					throw new Error('Error while invoking beforeAll hook');
+					handleHookExecutionError(err, logger, 'beforeAll');
 				}
 			}
 		} catch (err: unknown) {
-			throw new Error(
-				(err instanceof Error && err.message) || 'Error while invoking beforeAll hook',
-			);
+			handleHookHandlerError(err, 'beforeAll');
 		}
 	};
 
