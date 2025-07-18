@@ -1,6 +1,6 @@
 {
   "name": "@adobe/plugin-hooks",
-  "version": "0.3.5-alpha.1",
+  "version": "0.3.5-alpha.2",
   "publishConfig": {
     "access": "public"
   },
@@ -23,7 +23,7 @@
     "build": "yarn clean && yarn build:esm && yarn build:cjs && yarn copy:js",
     "build:esm": "tsc --project tsconfig.esm.json --outDir dist/esm",
     "build:cjs": "tsc --project tsconfig.cjs.json --outDir dist/cjs",
-    "copy:js": "cp src/dynamicImport.js dist/esm/ && cp src/dynamicImport.js dist/cjs/",
+    "copy:js": "cp src/dynamicImport.js dist/esm/ && cp src/dynamicImport.cjs dist/cjs/dynamicImport.js",
     "prepack": "yarn build",
     "lint": "eslint src",
     "lint:fix": "eslint --fix .",
