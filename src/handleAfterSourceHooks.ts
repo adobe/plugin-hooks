@@ -22,6 +22,8 @@ export interface AfterSourceHookPayload {
 	sourceName: string;
 	request: RequestInit;
 	operation: OperationDefinitionNode;
+	response: Response;
+	setResponse: (response: Response) => void;
 }
 
 export interface AfterSourceHookExecConfig {
