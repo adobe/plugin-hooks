@@ -25,10 +25,12 @@ import {
 } from '../__fixtures__/hooksTestHelper';
 import { mockLogger } from '../__mocks__/yogaLogger';
 import hooksPlugin from '../index';
-import { HookFunction, Module, UserContext } from '../types';
+import { HookFunction, Module, UserContext, SourceHookConfig } from '../types';
 
 let mockHook: ReturnType<typeof vi.fn>;
 let mockModule: Module;
+let mockBeforeSourceHook: ReturnType<typeof vi.fn>;
+let mockAfterSourceHook: ReturnType<typeof vi.fn>;
 
 describe('hooksPlugin', () => {
 	let yogaServer: YogaServer<YogaInitialContext, UserContext>;
@@ -37,6 +39,8 @@ describe('hooksPlugin', () => {
 		| TypedExecutionArgs<YogaInitialContext>;
 	beforeEach(async () => {
 		mockHook = vi.fn<HookFunction>();
+		mockBeforeSourceHook = vi.fn<HookFunction>();
+		mockAfterSourceHook = vi.fn<HookFunction>();
 		mockModule = { mockHook };
 		yogaServer = createYoga<YogaInitialContext, UserContext>({
 			plugins: [
@@ -138,6 +142,53 @@ describe('hooksPlugin', () => {
 		const errors = response.errors!;
 		expect(errors.length).toBe(1);
 		expect(errors[0].message).toEqual(mockErrorResponse.message);
+	});
+
+	test('should create plugin with source hooks configuration', async () => {
+		const mockBeforeSourceModule = { mockBeforeSourceHook };
+		const mockAfterSourceModule = { mockAfterSourceHook };
+
+		const beforeSourceConfig: SourceHookConfig = {
+			testSource: [
+				{
+					blocking: false,
+					module: mockBeforeSourceModule,
+					fn: 'mockBeforeSourceHook',
+				},
+			],
+		};
+
+		const afterSourceConfig: SourceHookConfig = {
+			testSource: [
+				{
+					blocking: false,
+					module: mockAfterSourceModule,
+					fn: 'mockAfterSourceHook',
+				},
+			],
+		};
+
+		const plugin = await hooksPlugin({
+			baseDir: '',
+			logger: mockLogger,
+			beforeSource: beforeSourceConfig,
+			afterSource: afterSourceConfig,
+		});
+
+		expect(plugin).toBeDefined();
+		expect(plugin.onFetch).toBeDefined();
+		expect(typeof plugin.onFetch).toBe('function');
+	});
+
+	test('should create plugin with no source hooks', async () => {
+		const plugin = await hooksPlugin({
+			baseDir: '',
+			logger: mockLogger,
+		});
+
+		expect(plugin).toBeDefined();
+		expect(plugin.onFetch).toBeDefined();
+		expect(typeof plugin.onFetch).toBe('function');
 	});
 });
 

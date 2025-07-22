@@ -19,8 +19,13 @@ import type {
 	UserContext,
 	GraphQLData,
 	GraphQLError as GraphQLErrorType,
+	SourceHookConfig,
 } from './types';
+import getBeforeSourceHookHandler from './handleBeforeSourceHooks';
 import type { YogaLogger, Plugin, YogaInitialContext } from 'graphql-yoga';
+import { MeshFetch, OnFetchHookPayload } from '@graphql-mesh/types';
+import { GraphQLResolveInfo } from 'graphql';
+import getAfterSourceHookHandler from './handleAfterSourceHooks';
 
 // Export types for developer experience working w/ plugins
 export type { HookFunction, HookFunctionPayload, HookResponse, HookStatus } from './types';
@@ -29,17 +34,59 @@ interface PluginConfig {
 	baseDir: string;
 	logger: YogaLogger;
 	beforeAll?: HookConfig;
+	beforeSource?: SourceHookConfig;
+	afterSource?: SourceHookConfig;
 	afterAll?: HookConfig;
 }
 
-type HooksPlugin = Plugin<YogaInitialContext, Record<string, unknown>, UserContext>;
+type Options = {
+	headers?: Record<string, string>;
+	body?: string;
+	method?: string;
+};
+
+type MeshPluginContext = {
+	url: string;
+	options: Options;
+	context: Record<string, unknown>;
+	info: GraphQLResolveInfo;
+	fetchFn: MeshFetch;
+	setFetchFn: (fetchFn: MeshFetch) => void;
+};
+
+type GraphQLResolveInfoWithSourceName = GraphQLResolveInfo & {
+	sourceName: string;
+};
+
+type HooksPlugin = Plugin<YogaInitialContext, Record<string, unknown>, UserContext> & {
+	onFetch?: ({
+		url,
+		context,
+		info,
+		options,
+	}: OnFetchHookPayload<MeshPluginContext>) => Promise<
+		| void
+		| (({
+				response,
+				setResponse,
+		  }: {
+				response: Response;
+				setResponse: (response: Response) => void;
+		  }) => Promise<void>)
+	>;
+};
 
 export default async function hooksPlugin(config: PluginConfig): Promise<HooksPlugin> {
 	try {
-		const { beforeAll, afterAll, baseDir, logger } = config;
+		const { beforeAll, afterAll, beforeSource, afterSource, baseDir, logger } = config;
 
-		if (!beforeAll && !afterAll) {
-			return { onExecute: async () => ({}) };
+		// Check if any hooks are configured
+		const hasAnyHooks = beforeAll || afterAll || beforeSource || afterSource;
+		if (!hasAnyHooks) {
+			return {
+				onExecute: async () => ({}),
+				onFetch: async () => {},
+			};
 		}
 		const memoizedFns: MemoizedFns = {};
 		const beforeAllHookHandler = beforeAll
@@ -127,6 +174,64 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				}
 
 				return {};
+			},
+			async onFetch({ info, options }) {
+				if (!info || !info.operation || (!config.afterSource && !config.beforeSource)) {
+					return;
+				}
+				// Ignore introspection queries
+				const operationName = info.operation.name?.value;
+				const isIntrospectionQuery = operationName === 'IntrospectionQuery';
+				if (isIntrospectionQuery) {
+					return;
+				}
+				const sourceName = (info as GraphQLResolveInfoWithSourceName).sourceName;
+				const beforeSourceHooks = config.beforeSource?.[sourceName] || [];
+				const afterSourceHooks = config.afterSource?.[sourceName] || [];
+				if (beforeSourceHooks) {
+					const beforeSourceHookHandler = getBeforeSourceHookHandler({
+						baseDir,
+						beforeSource: beforeSourceHooks,
+						logger,
+						memoizedFns,
+					});
+
+					const payload = {
+						request: options,
+						operation: info.operation,
+						sourceName,
+					};
+
+					await beforeSourceHookHandler({
+						payload,
+						hookType: 'beforeSource',
+					});
+				}
+				return async ({
+					response,
+					setResponse,
+				}: {
+					response: Response;
+					setResponse: (response: Response) => void;
+				}) => {
+					const afterSourceHookHandler = getAfterSourceHookHandler({
+						baseDir,
+						afterSource: afterSourceHooks,
+						logger,
+						memoizedFns,
+					});
+					const payload = {
+						request: options,
+						operation: info.operation,
+						sourceName,
+						response,
+						setResponse,
+					};
+					await afterSourceHookHandler({
+						payload,
+						hookType: 'afterSource',
+					});
+				};
 			},
 		};
 	} catch (err: unknown) {
