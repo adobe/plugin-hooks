@@ -57,6 +57,7 @@ describe('getBeforeSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'beforeSource',
 			});
 			expect(mockHook).toHaveBeenCalledOnce();
 		});
@@ -88,6 +89,7 @@ describe('getBeforeSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'beforeSource',
 			});
 			expect(mockHook).toHaveBeenCalledOnce();
 		});
@@ -119,6 +121,7 @@ describe('getBeforeSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'beforeSource',
 			});
 			expect(mockHook).toHaveBeenCalledOnce();
 		});
@@ -162,6 +165,7 @@ describe('getBeforeSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'beforeSource',
 			});
 			expect(mockHook1).toHaveBeenCalledOnce();
 			expect(mockHook2).toHaveBeenCalledOnce();
@@ -182,6 +186,7 @@ describe('getBeforeSourceHookHandler', () => {
 						request: { method: 'GET' },
 						operation: {} as OperationDefinitionNode,
 					},
+					hookType: 'beforeSource',
 				}),
 			).resolves.not.toThrow();
 		});
@@ -201,6 +206,7 @@ describe('getBeforeSourceHookHandler', () => {
 						request: { method: 'GET' },
 						operation: {} as OperationDefinitionNode,
 					},
+					hookType: 'beforeSource',
 				}),
 			).resolves.not.toThrow();
 		});
@@ -233,6 +239,7 @@ describe('getBeforeSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'beforeSource',
 			}),
 		).rejects.toThrowError(mockResponse.message);
 	});
@@ -268,6 +275,7 @@ describe('getBeforeSourceHookHandler', () => {
 				request: { method: 'GET' },
 				operation: {} as OperationDefinitionNode,
 			},
+			hookType: 'beforeSource',
 		});
 		expect(mockHook).toHaveBeenCalledTimes(0);
 		expect(mockMemoizedHook).toHaveBeenCalledOnce();
@@ -297,6 +305,7 @@ describe('getBeforeSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'beforeSource',
 			}),
 		).rejects.toThrowError('Hook execution failed');
 	});
@@ -325,6 +334,7 @@ describe('getBeforeSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'beforeSource',
 			}),
 		).rejects.toThrowError('Custom error object');
 	});
@@ -353,6 +363,7 @@ describe('getBeforeSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'beforeSource',
 			}),
 		).rejects.toThrowError('Error while invoking beforeSource hook');
 	});
@@ -381,6 +392,7 @@ describe('getBeforeSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'beforeSource',
 			}),
 		).rejects.toThrowError('Error while invoking beforeSource hook');
 	});
@@ -410,7 +422,7 @@ describe('getBeforeSourceHookHandler', () => {
 			request: { method: 'POST', body: 'test body' },
 			operation: { kind: 'OperationDefinition' } as OperationDefinitionNode,
 		};
-		await beforeSourceHookHandler({ payload });
+		await beforeSourceHookHandler({ payload, hookType: 'beforeSource' });
 		expect(mockHook).toHaveBeenCalledWith(payload);
 	});
 });

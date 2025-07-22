@@ -11,6 +11,7 @@ governing permissions and limitations under the License.
 */
 
 import type { YogaLogger } from 'graphql-yoga';
+import type { OperationDefinitionNode } from 'graphql';
 import type { HookConfig, HookFunction, MemoizedFns } from '../types';
 //@ts-expect-error The dynamic import is a workaround for cjs
 import importFn from '../dynamicImport';
@@ -31,6 +32,38 @@ export interface HookResolverConfig {
 	baseDir: string;
 	logger: YogaLogger;
 	memoizedFns: MemoizedFns;
+}
+export interface BeforeSourceHookPayload {
+	sourceName: string;
+	request: RequestInit;
+	operation: OperationDefinitionNode;
+}
+
+export interface AfterSourceHookPayload {
+	sourceName: string;
+	request: RequestInit;
+	operation: OperationDefinitionNode;
+	response: Response;
+	setResponse: (response: Response) => void;
+}
+
+/**
+ * Configuration for source hook resolution
+ */
+export interface SourceHookResolverConfig {
+	hookConfigs: HookConfig[];
+	hookType: 'beforeSource' | 'afterSource';
+	baseDir: string;
+	logger: YogaLogger;
+	memoizedFns: MemoizedFns;
+}
+
+/**
+ * Configuration for source hook execution
+ */
+export interface SourceHookExecConfig {
+	payload: BeforeSourceHookPayload | AfterSourceHookPayload;
+	hookType: 'beforeSource' | 'afterSource';
 }
 
 /**
@@ -96,6 +129,69 @@ export async function resolveHookFunction(
 	// Memoize the resolved function
 	if (hookFunction) {
 		memoizedFns[hookType] = hookFunction;
+	}
+
+	return hookFunction;
+}
+
+/**
+ * Resolves a single source hook function with memoization
+ *
+ * @param hookConfig - The hook configuration
+ * @param index - The index of the hook in the array
+ * @param config - Configuration object containing dependencies
+ * @returns Promise<HookFunction | undefined> - The resolved hook function or undefined
+ */
+export async function resolveSourceHookFunction(
+	hookConfig: HookConfig,
+	index: number,
+	config: SourceHookResolverConfig,
+): Promise<HookFunction | undefined> {
+	const { hookType, baseDir, logger, memoizedFns } = config;
+
+	// Check if function is already memoized
+	if (memoizedFns[hookType] && memoizedFns[hookType][index] !== null) {
+		return memoizedFns[hookType][index] as HookFunction;
+	}
+
+	let hookFunction: HookFunction | undefined;
+
+	// Resolve function based on configuration type
+	if (isRemoteFn(hookConfig.composer || '')) {
+		// Remote endpoint function
+		logger.debug('Invoking remote function %s', hookConfig.composer);
+		hookFunction = await getWrappedRemoteHookFunction(hookConfig.composer!, {
+			baseDir,
+			importFn,
+			logger,
+			blocking: hookConfig.blocking,
+		});
+	} else if (isModuleFn(hookConfig)) {
+		// Module function (bundled scenarios)
+		logger.debug('Invoking local module function %s %s', hookConfig.module, hookConfig.fn);
+		hookFunction = await getWrappedLocalModuleHookFunction(hookConfig.module!, hookConfig.fn!, {
+			baseDir,
+			importFn,
+			logger,
+			blocking: hookConfig.blocking,
+		});
+	} else {
+		// Local function at runtime
+		logger.debug('Invoking local function %s', hookConfig.composer);
+		hookFunction = await getWrappedLocalHookFunction(hookConfig.composer!, {
+			baseDir,
+			importFn,
+			logger,
+			blocking: hookConfig.blocking,
+		});
+	}
+
+	// Memoize the resolved function
+	if (hookFunction) {
+		if (!memoizedFns[hookType]) {
+			memoizedFns[hookType] = [];
+		}
+		memoizedFns[hookType][index] = hookFunction;
 	}
 
 	return hookFunction;

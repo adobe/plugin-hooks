@@ -1,15 +1,7 @@
 import type { YogaLogger } from 'graphql-yoga';
 import { HookFunction, HookStatus, MemoizedFns, HookConfig } from './types';
-import type { OperationDefinitionNode } from 'graphql';
-//@ts-expect-error The dynamic import is a workaround for cjs
-import importFn from './dynamicImport';
-import {
-	isModuleFn,
-	isRemoteFn,
-	getWrappedLocalHookFunction,
-	getWrappedLocalModuleHookFunction,
-	getWrappedRemoteHookFunction,
-} from './utils';
+import type { SourceHookExecConfig } from './utils/hookResolver';
+import { resolveSourceHookFunction } from './utils/hookResolver';
 
 export interface BeforeSourceHookBuildConfig {
 	baseDir: string;
@@ -18,18 +10,8 @@ export interface BeforeSourceHookBuildConfig {
 	memoizedFns: MemoizedFns;
 }
 
-export interface BeforeSourceHookPayload {
-	sourceName: string;
-	request: RequestInit;
-	operation: OperationDefinitionNode;
-}
-
-export interface BeforeSourceHookExecConfig {
-	payload: BeforeSourceHookPayload;
-}
-
 const getBeforeSourceHookHandler = (fnBuildConfig: BeforeSourceHookBuildConfig) => {
-	return async (fnExecConfig: BeforeSourceHookExecConfig) => {
+	return async (fnExecConfig: SourceHookExecConfig) => {
 		const { baseDir, logger, beforeSource, memoizedFns } = fnBuildConfig;
 		const { payload } = fnExecConfig;
 
@@ -47,57 +29,24 @@ const getBeforeSourceHookHandler = (fnBuildConfig: BeforeSourceHookBuildConfig) 
 
 		for (let i = 0; i < beforeSourceHooks.length; i++) {
 			const hookConfig = beforeSourceHooks[i];
-			let hookFn: HookFunction | undefined;
-
-			// Check if function is already memoized
-			if (memoizedFns.beforeSource[i] !== null) {
-				hookFn = memoizedFns.beforeSource[i] as HookFunction;
-			} else {
-				// Create and memoize the function
-				if (isRemoteFn(hookConfig.composer || '')) {
-					// Invoke remote endpoint
-					logger.debug('Invoking remote function %s', hookConfig.composer);
-					hookFn = await getWrappedRemoteHookFunction(hookConfig.composer!, {
-						baseDir,
-						importFn,
-						logger,
-						blocking: hookConfig.blocking,
-					});
-				} else if (isModuleFn(hookConfig)) {
-					// Invoke function from imported module
-					logger.debug('Invoking local module function %s %s', hookConfig.module, hookConfig.fn);
-					hookFn = await getWrappedLocalModuleHookFunction(hookConfig.module!, hookConfig.fn!, {
-						baseDir,
-						importFn,
-						logger,
-						blocking: hookConfig.blocking,
-					});
-				} else {
-					// Invoke local function at runtime
-					logger.debug('Invoking local function %s', hookConfig.composer);
-					hookFn = await getWrappedLocalHookFunction(hookConfig.composer!, {
-						baseDir,
-						importFn,
-						logger,
-						blocking: hookConfig.blocking,
-					});
-				}
-				// Memoize the function
-				memoizedFns.beforeSource[i] = hookFn;
-			}
+			const hookFn: HookFunction | undefined = await resolveSourceHookFunction(hookConfig, i, {
+				hookConfigs: beforeSourceHooks,
+				hookType: 'beforeSource',
+				baseDir,
+				logger,
+				memoizedFns,
+			});
 
 			if (hookFn) {
 				try {
 					const hooksResponse = await hookFn(payload);
 					if (hookConfig.blocking) {
-						if (hooksResponse.status.toUpperCase() === HookStatus.SUCCESS) {
-							// Handle success response if needed
-						} else {
+						if (hooksResponse.status.toUpperCase() === HookStatus.ERROR) {
 							throw new Error(hooksResponse.message);
 						}
 					}
 				} catch (err: unknown) {
-					logger.error('Error while invoking beforeSource hook %o', err);
+					logger.error('Error while invoking afterSource hook %o', err);
 					if (err instanceof Error) {
 						throw new Error(err.message);
 					}

@@ -55,6 +55,7 @@ describe('getAfterSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'afterSource',
 			});
 			expect(mockHook).toHaveBeenCalledOnce();
 		});
@@ -86,6 +87,7 @@ describe('getAfterSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'afterSource',
 			});
 			expect(mockHook).toHaveBeenCalledOnce();
 		});
@@ -117,6 +119,7 @@ describe('getAfterSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'afterSource',
 			});
 			expect(mockHook).toHaveBeenCalledOnce();
 		});
@@ -160,6 +163,7 @@ describe('getAfterSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'afterSource',
 			});
 			expect(mockHook1).toHaveBeenCalledOnce();
 			expect(mockHook2).toHaveBeenCalledOnce();
@@ -180,6 +184,7 @@ describe('getAfterSourceHookHandler', () => {
 						request: { method: 'GET' },
 						operation: {} as OperationDefinitionNode,
 					},
+					hookType: 'afterSource',
 				}),
 			).resolves.not.toThrow();
 		});
@@ -199,6 +204,7 @@ describe('getAfterSourceHookHandler', () => {
 						request: { method: 'GET' },
 						operation: {} as OperationDefinitionNode,
 					},
+					hookType: 'afterSource',
 				}),
 			).resolves.not.toThrow();
 		});
@@ -231,6 +237,7 @@ describe('getAfterSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'afterSource',
 			}),
 		).rejects.toThrowError(mockResponse.message);
 	});
@@ -266,6 +273,7 @@ describe('getAfterSourceHookHandler', () => {
 				request: { method: 'GET' },
 				operation: {} as OperationDefinitionNode,
 			},
+			hookType: 'afterSource',
 		});
 		expect(mockHook).toHaveBeenCalledTimes(0);
 		expect(mockMemoizedHook).toHaveBeenCalledOnce();
@@ -295,6 +303,7 @@ describe('getAfterSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'afterSource',
 			}),
 		).rejects.toThrowError('Hook execution failed');
 	});
@@ -323,6 +332,7 @@ describe('getAfterSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'afterSource',
 			}),
 		).rejects.toThrowError('Custom error object');
 	});
@@ -351,6 +361,7 @@ describe('getAfterSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'afterSource',
 			}),
 		).rejects.toThrowError('Error while invoking afterSource hook');
 	});
@@ -379,6 +390,7 @@ describe('getAfterSourceHookHandler', () => {
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
 				},
+				hookType: 'afterSource',
 			}),
 		).rejects.toThrowError('Error while invoking afterSource hook');
 	});
@@ -408,7 +420,7 @@ describe('getAfterSourceHookHandler', () => {
 			request: { method: 'POST', body: 'test body' },
 			operation: { kind: 'OperationDefinition' } as OperationDefinitionNode,
 		};
-		await afterSourceHookHandler({ payload });
+		await afterSourceHookHandler({ payload, hookType: 'afterSource' });
 		expect(mockHook).toHaveBeenCalledWith(payload);
 	});
 });

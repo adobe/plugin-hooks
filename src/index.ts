@@ -204,6 +204,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 
 					await beforeSourceHookHandler({
 						payload,
+						hookType: 'beforeSource',
 					});
 				}
 				return async ({
@@ -228,6 +229,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 					};
 					await afterSourceHookHandler({
 						payload,
+						hookType: 'afterSource',
 					});
 				};
 			},
