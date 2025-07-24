@@ -64,6 +64,7 @@ export interface SourceHookResolverConfig {
 export interface SourceHookExecConfig {
 	payload: BeforeSourceHookPayload | AfterSourceHookPayload;
 	hookType: 'beforeSource' | 'afterSource';
+	sourceName: string;
 }
 
 /**
@@ -146,12 +147,17 @@ export async function resolveSourceHookFunction(
 	hookConfig: HookConfig,
 	index: number,
 	config: SourceHookResolverConfig,
+	sourceName: string,
 ): Promise<HookFunction | undefined> {
 	const { hookType, baseDir, logger, memoizedFns } = config;
 
 	// Check if function is already memoized
-	if (memoizedFns[hookType] && memoizedFns[hookType][index] !== null) {
-		return memoizedFns[hookType][index] as HookFunction;
+	if (
+		memoizedFns[hookType] &&
+		memoizedFns[hookType][sourceName] &&
+		memoizedFns[hookType][sourceName][index] !== null
+	) {
+		return memoizedFns[hookType][sourceName][index] as HookFunction;
 	}
 
 	let hookFunction: HookFunction | undefined;
@@ -189,9 +195,12 @@ export async function resolveSourceHookFunction(
 	// Memoize the resolved function
 	if (hookFunction) {
 		if (!memoizedFns[hookType]) {
-			memoizedFns[hookType] = [];
+			memoizedFns[hookType] = {};
 		}
-		memoizedFns[hookType][index] = hookFunction;
+		if (!memoizedFns[hookType][sourceName]) {
+			memoizedFns[hookType][sourceName] = [];
+		}
+		memoizedFns[hookType][sourceName][index] = hookFunction;
 	}
 
 	return hookFunction;
