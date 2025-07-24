@@ -13,29 +13,37 @@ export interface AfterSourceHookBuildConfig {
 const getAfterSourceHookHandler = (fnBuildConfig: AfterSourceHookBuildConfig) => {
 	return async (fnExecConfig: SourceHookExecConfig) => {
 		const { baseDir, logger, afterSource, memoizedFns } = fnBuildConfig;
-		const { payload } = fnExecConfig;
+		const { payload, sourceName } = fnExecConfig;
 
 		const afterSourceHooks = afterSource || [];
 
 		// Initialize memoized functions array if not exists
 		if (!memoizedFns.afterSource) {
-			memoizedFns.afterSource = [];
+			memoizedFns.afterSource = {};
+		}
+		if (!memoizedFns.afterSource[sourceName]) {
+			memoizedFns.afterSource[sourceName] = [];
 		}
 
 		// Ensure we have enough memoized functions for all hooks
-		while (memoizedFns.afterSource.length < afterSourceHooks.length) {
-			memoizedFns.afterSource.push(null);
+		while (memoizedFns.afterSource[sourceName].length < afterSourceHooks.length) {
+			memoizedFns.afterSource[sourceName].push(null);
 		}
 
 		for (let i = 0; i < afterSourceHooks.length; i++) {
 			const hookConfig = afterSourceHooks[i];
-			const hookFn: HookFunction | undefined = await resolveSourceHookFunction(hookConfig, i, {
-				hookConfigs: afterSourceHooks,
-				hookType: 'afterSource',
-				baseDir,
-				logger,
-				memoizedFns,
-			});
+			const hookFn: HookFunction | undefined = await resolveSourceHookFunction(
+				hookConfig,
+				i,
+				{
+					hookConfigs: afterSourceHooks,
+					hookType: 'afterSource',
+					baseDir,
+					logger,
+					memoizedFns,
+				},
+				sourceName,
+			);
 
 			if (hookFn) {
 				try {

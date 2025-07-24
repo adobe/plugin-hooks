@@ -54,8 +54,11 @@ describe('getAfterSourceHookHandler', () => {
 					sourceName: 'testSource',
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
+					response: new Response(),
+					setResponse: vi.fn(),
 				},
 				hookType: 'afterSource',
+				sourceName: 'testSource',
 			});
 			expect(mockHook).toHaveBeenCalledOnce();
 		});
@@ -86,8 +89,11 @@ describe('getAfterSourceHookHandler', () => {
 					sourceName: 'testSource',
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
+					response: new Response(),
+					setResponse: vi.fn(),
 				},
 				hookType: 'afterSource',
+				sourceName: 'testSource',
 			});
 			expect(mockHook).toHaveBeenCalledOnce();
 		});
@@ -120,6 +126,7 @@ describe('getAfterSourceHookHandler', () => {
 					operation: {} as OperationDefinitionNode,
 				},
 				hookType: 'afterSource',
+				sourceName: 'testSource',
 			});
 			expect(mockHook).toHaveBeenCalledOnce();
 		});
@@ -164,6 +171,7 @@ describe('getAfterSourceHookHandler', () => {
 					operation: {} as OperationDefinitionNode,
 				},
 				hookType: 'afterSource',
+				sourceName: 'testSource',
 			});
 			expect(mockHook1).toHaveBeenCalledOnce();
 			expect(mockHook2).toHaveBeenCalledOnce();
@@ -185,6 +193,7 @@ describe('getAfterSourceHookHandler', () => {
 						operation: {} as OperationDefinitionNode,
 					},
 					hookType: 'afterSource',
+					sourceName: 'testSource',
 				}),
 			).resolves.not.toThrow();
 		});
@@ -205,6 +214,7 @@ describe('getAfterSourceHookHandler', () => {
 						operation: {} as OperationDefinitionNode,
 					},
 					hookType: 'afterSource',
+					sourceName: 'testSource',
 				}),
 			).resolves.not.toThrow();
 		});
@@ -238,6 +248,7 @@ describe('getAfterSourceHookHandler', () => {
 					operation: {} as OperationDefinitionNode,
 				},
 				hookType: 'afterSource',
+				sourceName: 'testSource',
 			}),
 		).rejects.toThrowError(mockResponse.message);
 	});
@@ -252,7 +263,7 @@ describe('getAfterSourceHookHandler', () => {
 		const mockModule = { mockHook };
 		const mockConfig: AfterSourceHookBuildConfig = {
 			memoizedFns: {
-				afterSource: [mockMemoizedHook],
+				afterSource: { testSource: [mockMemoizedHook] },
 			},
 			baseDir: '',
 			logger: mockLogger,
@@ -272,8 +283,11 @@ describe('getAfterSourceHookHandler', () => {
 				sourceName: 'testSource',
 				request: { method: 'GET' },
 				operation: {} as OperationDefinitionNode,
+				response: new Response(),
+				setResponse: vi.fn(),
 			},
 			hookType: 'afterSource',
+			sourceName: 'testSource',
 		});
 		expect(mockHook).toHaveBeenCalledTimes(0);
 		expect(mockMemoizedHook).toHaveBeenCalledOnce();
@@ -283,7 +297,7 @@ describe('getAfterSourceHookHandler', () => {
 		const mockHook = vi.fn().mockRejectedValue(new Error('Hook execution failed'));
 		const mockConfig: AfterSourceHookBuildConfig = {
 			memoizedFns: {
-				afterSource: [mockHook],
+				afterSource: { testSource: [mockHook] },
 			},
 			baseDir: '',
 			logger: mockLogger,
@@ -302,8 +316,11 @@ describe('getAfterSourceHookHandler', () => {
 					sourceName: 'testSource',
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
+					response: new Response(),
+					setResponse: vi.fn(),
 				},
 				hookType: 'afterSource',
+				sourceName: 'testSource',
 			}),
 		).rejects.toThrowError('Hook execution failed');
 	});
@@ -312,7 +329,7 @@ describe('getAfterSourceHookHandler', () => {
 		const mockHook = vi.fn().mockRejectedValue({ message: 'Custom error object' });
 		const mockConfig: AfterSourceHookBuildConfig = {
 			memoizedFns: {
-				afterSource: [mockHook],
+				afterSource: { testSource: [mockHook] },
 			},
 			baseDir: '',
 			logger: mockLogger,
@@ -331,8 +348,11 @@ describe('getAfterSourceHookHandler', () => {
 					sourceName: 'testSource',
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
+					response: new Response(),
+					setResponse: vi.fn(),
 				},
 				hookType: 'afterSource',
+				sourceName: 'testSource',
 			}),
 		).rejects.toThrowError('Custom error object');
 	});
@@ -341,7 +361,7 @@ describe('getAfterSourceHookHandler', () => {
 		const mockHook = vi.fn().mockRejectedValue({ someOtherProperty: 'value' });
 		const mockConfig: AfterSourceHookBuildConfig = {
 			memoizedFns: {
-				afterSource: [mockHook],
+				afterSource: { testSource: [mockHook] },
 			},
 			baseDir: '',
 			logger: mockLogger,
@@ -360,8 +380,11 @@ describe('getAfterSourceHookHandler', () => {
 					sourceName: 'testSource',
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
+					response: new Response(),
+					setResponse: vi.fn(),
 				},
 				hookType: 'afterSource',
+				sourceName: 'testSource',
 			}),
 		).rejects.toThrowError('Error while invoking afterSource hook');
 	});
@@ -370,7 +393,7 @@ describe('getAfterSourceHookHandler', () => {
 		const mockHook = vi.fn().mockRejectedValue('String error');
 		const mockConfig: AfterSourceHookBuildConfig = {
 			memoizedFns: {
-				afterSource: [mockHook],
+				afterSource: { testSource: [mockHook] },
 			},
 			baseDir: '',
 			logger: mockLogger,
@@ -389,8 +412,11 @@ describe('getAfterSourceHookHandler', () => {
 					sourceName: 'testSource',
 					request: { method: 'GET' },
 					operation: {} as OperationDefinitionNode,
+					response: new Response(),
+					setResponse: vi.fn(),
 				},
 				hookType: 'afterSource',
+				sourceName: 'testSource',
 			}),
 		).rejects.toThrowError('Error while invoking afterSource hook');
 	});
@@ -420,7 +446,11 @@ describe('getAfterSourceHookHandler', () => {
 			request: { method: 'POST', body: 'test body' },
 			operation: { kind: 'OperationDefinition' } as OperationDefinitionNode,
 		};
-		await afterSourceHookHandler({ payload, hookType: 'afterSource' });
+		await afterSourceHookHandler({
+			payload,
+			hookType: 'afterSource',
+			sourceName: 'testSource',
+		});
 		expect(mockHook).toHaveBeenCalledWith(payload);
 	});
 });

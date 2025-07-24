@@ -42,8 +42,8 @@ export interface HookConfig {
 
 export interface MemoizedFns {
 	beforeAll?: HookFunction;
-	beforeSource?: (HookFunction | null)[];
-	afterSource?: (HookFunction | null)[];
+	beforeSource?: Record<string, (HookFunction | null)[]>;
+	afterSource?: Record<string, (HookFunction | null)[]>;
 	afterAll?: HookFunction;
 }
 

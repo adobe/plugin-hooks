@@ -58,6 +58,7 @@ describe('getBeforeSourceHookHandler', () => {
 					operation: {} as OperationDefinitionNode,
 				},
 				hookType: 'beforeSource',
+				sourceName: 'testSource',
 			});
 			expect(mockHook).toHaveBeenCalledOnce();
 		});
@@ -90,6 +91,7 @@ describe('getBeforeSourceHookHandler', () => {
 					operation: {} as OperationDefinitionNode,
 				},
 				hookType: 'beforeSource',
+				sourceName: 'testSource',
 			});
 			expect(mockHook).toHaveBeenCalledOnce();
 		});
@@ -122,6 +124,7 @@ describe('getBeforeSourceHookHandler', () => {
 					operation: {} as OperationDefinitionNode,
 				},
 				hookType: 'beforeSource',
+				sourceName: 'testSource',
 			});
 			expect(mockHook).toHaveBeenCalledOnce();
 		});
@@ -166,6 +169,7 @@ describe('getBeforeSourceHookHandler', () => {
 					operation: {} as OperationDefinitionNode,
 				},
 				hookType: 'beforeSource',
+				sourceName: 'testSource',
 			});
 			expect(mockHook1).toHaveBeenCalledOnce();
 			expect(mockHook2).toHaveBeenCalledOnce();
@@ -187,6 +191,7 @@ describe('getBeforeSourceHookHandler', () => {
 						operation: {} as OperationDefinitionNode,
 					},
 					hookType: 'beforeSource',
+					sourceName: 'testSource',
 				}),
 			).resolves.not.toThrow();
 		});
@@ -207,6 +212,7 @@ describe('getBeforeSourceHookHandler', () => {
 						operation: {} as OperationDefinitionNode,
 					},
 					hookType: 'beforeSource',
+					sourceName: 'testSource',
 				}),
 			).resolves.not.toThrow();
 		});
@@ -240,6 +246,7 @@ describe('getBeforeSourceHookHandler', () => {
 					operation: {} as OperationDefinitionNode,
 				},
 				hookType: 'beforeSource',
+				sourceName: 'testSource',
 			}),
 		).rejects.toThrowError(mockResponse.message);
 	});
@@ -254,7 +261,7 @@ describe('getBeforeSourceHookHandler', () => {
 		const mockModule = { mockHook };
 		const mockConfig: BeforeSourceHookBuildConfig = {
 			memoizedFns: {
-				beforeSource: [mockMemoizedHook],
+				beforeSource: { testSource: [mockMemoizedHook] },
 			},
 			baseDir: '',
 			logger: mockLogger,
@@ -276,6 +283,7 @@ describe('getBeforeSourceHookHandler', () => {
 				operation: {} as OperationDefinitionNode,
 			},
 			hookType: 'beforeSource',
+			sourceName: 'testSource',
 		});
 		expect(mockHook).toHaveBeenCalledTimes(0);
 		expect(mockMemoizedHook).toHaveBeenCalledOnce();
@@ -285,7 +293,7 @@ describe('getBeforeSourceHookHandler', () => {
 		const mockHook = vi.fn().mockRejectedValue(new Error('Hook execution failed'));
 		const mockConfig: BeforeSourceHookBuildConfig = {
 			memoizedFns: {
-				beforeSource: [mockHook],
+				beforeSource: { testSource: [mockHook] },
 			},
 			baseDir: '',
 			logger: mockLogger,
@@ -306,6 +314,7 @@ describe('getBeforeSourceHookHandler', () => {
 					operation: {} as OperationDefinitionNode,
 				},
 				hookType: 'beforeSource',
+				sourceName: 'testSource',
 			}),
 		).rejects.toThrowError('Hook execution failed');
 	});
@@ -314,7 +323,7 @@ describe('getBeforeSourceHookHandler', () => {
 		const mockHook = vi.fn().mockRejectedValue({ message: 'Custom error object' });
 		const mockConfig: BeforeSourceHookBuildConfig = {
 			memoizedFns: {
-				beforeSource: [mockHook],
+				beforeSource: { testSource: [mockHook] },
 			},
 			baseDir: '',
 			logger: mockLogger,
@@ -335,6 +344,7 @@ describe('getBeforeSourceHookHandler', () => {
 					operation: {} as OperationDefinitionNode,
 				},
 				hookType: 'beforeSource',
+				sourceName: 'testSource',
 			}),
 		).rejects.toThrowError('Custom error object');
 	});
@@ -343,7 +353,7 @@ describe('getBeforeSourceHookHandler', () => {
 		const mockHook = vi.fn().mockRejectedValue({ someOtherProperty: 'value' });
 		const mockConfig: BeforeSourceHookBuildConfig = {
 			memoizedFns: {
-				beforeSource: [mockHook],
+				beforeSource: { testSource: [mockHook] },
 			},
 			baseDir: '',
 			logger: mockLogger,
@@ -364,6 +374,7 @@ describe('getBeforeSourceHookHandler', () => {
 					operation: {} as OperationDefinitionNode,
 				},
 				hookType: 'beforeSource',
+				sourceName: 'testSource',
 			}),
 		).rejects.toThrowError('Error while invoking beforeSource hook');
 	});
@@ -372,7 +383,7 @@ describe('getBeforeSourceHookHandler', () => {
 		const mockHook = vi.fn().mockRejectedValue('String error');
 		const mockConfig: BeforeSourceHookBuildConfig = {
 			memoizedFns: {
-				beforeSource: [mockHook],
+				beforeSource: { testSource: [mockHook] },
 			},
 			baseDir: '',
 			logger: mockLogger,
@@ -393,6 +404,7 @@ describe('getBeforeSourceHookHandler', () => {
 					operation: {} as OperationDefinitionNode,
 				},
 				hookType: 'beforeSource',
+				sourceName: 'testSource',
 			}),
 		).rejects.toThrowError('Error while invoking beforeSource hook');
 	});
@@ -422,7 +434,11 @@ describe('getBeforeSourceHookHandler', () => {
 			request: { method: 'POST', body: 'test body' },
 			operation: { kind: 'OperationDefinition' } as OperationDefinitionNode,
 		};
-		await beforeSourceHookHandler({ payload, hookType: 'beforeSource' });
+		await beforeSourceHookHandler({
+			payload,
+			hookType: 'beforeSource',
+			sourceName: 'testSource',
+		});
 		expect(mockHook).toHaveBeenCalledWith(payload);
 	});
 });

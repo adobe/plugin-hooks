@@ -88,7 +88,10 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				onFetch: async () => {},
 			};
 		}
-		const memoizedFns: MemoizedFns = {};
+		const memoizedFns: MemoizedFns = {
+			afterSource: {},
+			beforeSource: {},
+		};
 		const beforeAllHookHandler = beforeAll
 			? createBeforeAllHookHandler(beforeAll, baseDir, logger, memoizedFns)
 			: null;
@@ -205,6 +208,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 					await beforeSourceHookHandler({
 						payload,
 						hookType: 'beforeSource',
+						sourceName,
 					});
 				}
 				return async ({
@@ -230,6 +234,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 					await afterSourceHookHandler({
 						payload,
 						hookType: 'afterSource',
+						sourceName,
 					});
 				};
 			},
