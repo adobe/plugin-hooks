@@ -12,7 +12,7 @@ governing permissions and limitations under the License.
 
 import { GraphQLError } from 'graphql/error';
 import getBeforeAllHookHandler, { UpdateContextFn } from './handleBeforeAllHooks';
-import type { HookConfig, MemoizedFns, GraphQLResult } from './types';
+import type { HookConfig, MemoizedFns, GraphQLResult, StateApi } from './types';
 import type { YogaLogger, GraphQLParams } from 'graphql-yoga';
 import { PLUGIN_HOOKS_ERROR_CODES } from './errorCodes';
 
@@ -22,6 +22,8 @@ export interface BeforeAllExecutionContext {
 	body: unknown;
 	headers: Record<string, string>;
 	secrets: Record<string, string>;
+	state: StateApi;
+	logger: YogaLogger;
 	document: unknown;
 	updateContext: UpdateContextFn;
 	setResultAndStopExecution: (result: GraphQLResult) => void;
@@ -37,6 +39,8 @@ export async function executeBeforeAllHook(
 		body,
 		headers,
 		secrets,
+		state,
+		logger,
 		document,
 		updateContext,
 		setResultAndStopExecution,
@@ -44,7 +48,7 @@ export async function executeBeforeAllHook(
 
 	try {
 		const payload = {
-			context: { params, request, body, headers, secrets },
+			context: { params, request, body, headers, secrets, state, logger },
 			document,
 		};
 		await beforeAllHookHandler({ payload, updateContext });

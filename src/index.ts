@@ -20,6 +20,7 @@ import type {
 	GraphQLData,
 	GraphQLError as GraphQLErrorType,
 	SourceHookConfig,
+	StateApi,
 } from './types';
 import getBeforeSourceHookHandler from './handleBeforeSourceHooks';
 import type { YogaLogger, Plugin, YogaInitialContext } from 'graphql-yoga';
@@ -80,6 +81,9 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 	try {
 		const { beforeAll, afterAll, beforeSource, afterSource, baseDir, logger } = config;
 
+		// Unchanging server context
+		const serverContext: Partial<UserContext> = {};
+
 		// Check if any hooks are configured
 		const hasAnyHooks = beforeAll || afterAll || beforeSource || afterSource;
 		if (!hasAnyHooks) {
@@ -88,6 +92,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				onFetch: async () => {},
 			};
 		}
+
 		const memoizedFns: MemoizedFns = {
 			afterSource: {},
 			beforeSource: {},
@@ -105,6 +110,9 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				const { params, request } = context || {};
 				const headers = Object.fromEntries(request.headers.entries());
 				const secrets = ('secrets' in context ? context.secrets : {}) as Record<string, string>;
+				const state = ('state' in context ? context.state : {}) as StateApi;
+				serverContext.secrets = secrets;
+				serverContext.state = state;
 				let body = {};
 				if (request && request.body) {
 					body = request.body;
@@ -143,6 +151,8 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 							body,
 							headers,
 							secrets,
+							state,
+							logger,
 							document,
 							updateContext,
 							setResultAndStopExecution,
@@ -166,10 +176,11 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 								body,
 								headers,
 								secrets,
+								state,
+								logger,
 								document,
 								result,
 								setResultAndStopExecution,
-								logger,
 								afterAll: afterAll!,
 							});
 						},
@@ -200,6 +211,11 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 					});
 
 					const payload = {
+						context: {
+							secrets: serverContext.secrets!,
+							state: serverContext.state!,
+							logger,
+						},
 						request: options,
 						operation: info.operation,
 						sourceName,
@@ -225,6 +241,11 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						memoizedFns,
 					});
 					const payload = {
+						context: {
+							secrets: serverContext.secrets!,
+							state: serverContext.state!,
+							logger,
+						},
 						request: options,
 						operation: info.operation,
 						sourceName,

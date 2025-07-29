@@ -12,7 +12,7 @@ governing permissions and limitations under the License.
 
 import type { YogaLogger } from 'graphql-yoga';
 import type { OperationDefinitionNode } from 'graphql';
-import type { HookConfig, HookFunction, MemoizedFns } from '../types';
+import type { HookConfig, HookFunction, MemoizedFns, StateApi } from '../types';
 //@ts-expect-error The dynamic import is a workaround for cjs
 import importFn from '../dynamicImport';
 import {
@@ -34,12 +34,22 @@ export interface HookResolverConfig {
 	memoizedFns: MemoizedFns;
 }
 export interface BeforeSourceHookPayload {
+	context: {
+		logger: YogaLogger;
+		secrets: Record<string, string>;
+		state: StateApi;
+	};
 	sourceName: string;
 	request: RequestInit;
 	operation: OperationDefinitionNode;
 }
 
 export interface AfterSourceHookPayload {
+	context: {
+		logger: YogaLogger;
+		secrets: Record<string, string>;
+		state: StateApi;
+	};
 	sourceName: string;
 	request: RequestInit;
 	operation: OperationDefinitionNode;
@@ -67,6 +77,46 @@ export interface SourceHookExecConfig {
 	sourceName: string;
 }
 
+async function getHookFunction(
+	config: HookResolverConfig | SourceHookResolverConfig,
+	hookConfig: HookConfig,
+) {
+	const { baseDir, logger } = config;
+	let hookFunction: HookFunction | undefined;
+
+	// Resolve function based on configuration type
+	if (isRemoteFn(hookConfig.composer || '')) {
+		// Remote endpoint function
+		logger.debug('Invoking remote function %s', hookConfig.composer);
+		hookFunction = await getWrappedRemoteHookFunction(hookConfig.composer!, {
+			baseDir,
+			importFn,
+			logger,
+			blocking: hookConfig.blocking,
+		});
+	} else if (isModuleFn(hookConfig)) {
+		// Module function (bundled scenarios)
+		logger.debug('Invoking local module function %s %s', hookConfig.module, hookConfig.fn);
+		hookFunction = await getWrappedLocalModuleHookFunction(hookConfig.module!, hookConfig.fn!, {
+			baseDir,
+			importFn,
+			logger,
+			blocking: hookConfig.blocking,
+		});
+	} else {
+		// Local function at runtime
+		logger.debug('Invoking local function %s', hookConfig.composer);
+		hookFunction = await getWrappedLocalHookFunction(hookConfig.composer!, {
+			baseDir,
+			importFn,
+			logger,
+			blocking: hookConfig.blocking,
+		});
+	}
+
+	return hookFunction;
+}
+
 /**
  * Resolves and memoizes hook functions with consistent logic for both beforeAll and afterAll hooks
  *
@@ -87,7 +137,7 @@ export interface SourceHookExecConfig {
 export async function resolveHookFunction(
 	config: HookResolverConfig,
 ): Promise<HookFunction | undefined> {
-	const { hookConfig, hookType, baseDir, logger, memoizedFns } = config;
+	const { hookConfig, hookType, memoizedFns } = config;
 
 	// Check if function is already memoized
 	const memoizedFn = memoizedFns[hookType];
@@ -95,37 +145,7 @@ export async function resolveHookFunction(
 		return memoizedFn;
 	}
 
-	let hookFunction: HookFunction | undefined;
-
-	// Resolve function based on configuration type
-	if (isRemoteFn(hookConfig.composer || '')) {
-		// Remote endpoint function
-		logger.debug('Invoking remote function %s', hookConfig.composer);
-		hookFunction = await getWrappedRemoteHookFunction(hookConfig.composer!, {
-			baseDir,
-			importFn,
-			logger,
-			blocking: hookConfig.blocking,
-		});
-	} else if (isModuleFn(hookConfig)) {
-		// Module function (bundled scenarios)
-		logger.debug('Invoking local module function %s %s', hookConfig.module, hookConfig.fn);
-		hookFunction = await getWrappedLocalModuleHookFunction(hookConfig.module!, hookConfig.fn!, {
-			baseDir,
-			importFn,
-			logger,
-			blocking: hookConfig.blocking,
-		});
-	} else {
-		// Local function at runtime
-		logger.debug('Invoking local function %s', hookConfig.composer);
-		hookFunction = await getWrappedLocalHookFunction(hookConfig.composer!, {
-			baseDir,
-			importFn,
-			logger,
-			blocking: hookConfig.blocking,
-		});
-	}
+	const hookFunction: HookFunction | undefined = await getHookFunction(config, hookConfig);
 
 	// Memoize the resolved function
 	if (hookFunction) {
@@ -141,6 +161,7 @@ export async function resolveHookFunction(
  * @param hookConfig - The hook configuration
  * @param index - The index of the hook in the array
  * @param config - Configuration object containing dependencies
+ * @param sourceName - The name of the source for which the hook is being resolved
  * @returns Promise<HookFunction | undefined> - The resolved hook function or undefined
  */
 export async function resolveSourceHookFunction(
@@ -149,7 +170,7 @@ export async function resolveSourceHookFunction(
 	config: SourceHookResolverConfig,
 	sourceName: string,
 ): Promise<HookFunction | undefined> {
-	const { hookType, baseDir, logger, memoizedFns } = config;
+	const { hookType, memoizedFns } = config;
 
 	// Check if function is already memoized
 	if (
@@ -160,37 +181,7 @@ export async function resolveSourceHookFunction(
 		return memoizedFns[hookType][sourceName][index] as HookFunction;
 	}
 
-	let hookFunction: HookFunction | undefined;
-
-	// Resolve function based on configuration type
-	if (isRemoteFn(hookConfig.composer || '')) {
-		// Remote endpoint function
-		logger.debug('Invoking remote function %s', hookConfig.composer);
-		hookFunction = await getWrappedRemoteHookFunction(hookConfig.composer!, {
-			baseDir,
-			importFn,
-			logger,
-			blocking: hookConfig.blocking,
-		});
-	} else if (isModuleFn(hookConfig)) {
-		// Module function (bundled scenarios)
-		logger.debug('Invoking local module function %s %s', hookConfig.module, hookConfig.fn);
-		hookFunction = await getWrappedLocalModuleHookFunction(hookConfig.module!, hookConfig.fn!, {
-			baseDir,
-			importFn,
-			logger,
-			blocking: hookConfig.blocking,
-		});
-	} else {
-		// Local function at runtime
-		logger.debug('Invoking local function %s', hookConfig.composer);
-		hookFunction = await getWrappedLocalHookFunction(hookConfig.composer!, {
-			baseDir,
-			importFn,
-			logger,
-			blocking: hookConfig.blocking,
-		});
-	}
+	const hookFunction: HookFunction | undefined = await getHookFunction(config, hookConfig);
 
 	// Memoize the resolved function
 	if (hookFunction) {
