@@ -21,7 +21,8 @@ import {
 	GraphQLData,
 	GraphQLError as GraphQLErrorType,
 	SourceHookConfig,
-	StateApi, PLUGIN_HOOKS_ERROR_CODES,
+	StateApi,
+	PLUGIN_HOOKS_ERROR_CODES,
 } from './types';
 import getBeforeSourceHookHandler from './handleBeforeSourceHooks';
 import type { YogaLogger, Plugin, YogaInitialContext } from 'graphql-yoga';
