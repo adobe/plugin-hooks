@@ -10,7 +10,7 @@ OF ANY KIND, either express or implied. See the License for the specific languag
 governing permissions and limitations under the License.
 */
 
-import { GraphQLError } from 'graphql/error';
+import { GraphQLError } from 'graphql';
 import { UpdateContextFn } from './handleBeforeAllHooks';
 import { createBeforeAllHookHandler, executeBeforeAllHook } from './beforeAllExecutor';
 import { createAfterAllHookHandler, executeAfterAllHook } from './afterAllExecutor';
@@ -19,14 +19,15 @@ import {
 	MemoizedFns,
 	UserContext,
 	GraphQLData,
-	GraphQLError as GraphQLErrorType,
 	SourceHookConfig,
 	StateApi,
+	AfterSourceHookFunctionPayload,
+	BeforeSourceHookFunctionPayload,
 	PLUGIN_HOOKS_ERROR_CODES,
 } from './types';
 import getBeforeSourceHookHandler from './handleBeforeSourceHooks';
 import type { YogaLogger, Plugin, YogaInitialContext } from 'graphql-yoga';
-import { MeshFetch, OnFetchHookPayload } from '@graphql-mesh/types';
+import { MeshPlugin } from '@graphql-mesh/types';
 import { GraphQLResolveInfo } from 'graphql';
 import getAfterSourceHookHandler from './handleAfterSourceHooks';
 
@@ -42,49 +43,17 @@ interface PluginConfig {
 	afterAll?: HookConfig;
 }
 
-type Options = {
-	headers?: Record<string, string>;
-	body?: string;
-	method?: string;
-};
-
-type MeshPluginContext = {
-	url: string;
-	options: Options;
-	context: Record<string, unknown>;
-	info: GraphQLResolveInfo;
-	fetchFn: MeshFetch;
-	setFetchFn: (fetchFn: MeshFetch) => void;
-};
-
 type GraphQLResolveInfoWithSourceName = GraphQLResolveInfo & {
 	sourceName: string;
 };
 
-type HooksPlugin = Plugin<YogaInitialContext, Record<string, unknown>, UserContext> & {
-	onFetch?: ({
-		url,
-		context,
-		info,
-		options,
-	}: OnFetchHookPayload<MeshPluginContext>) => Promise<
-		| void
-		| (({
-				response,
-				setResponse,
-		  }: {
-				response: Response;
-				setResponse: (response: Response) => void;
-		  }) => Promise<void>)
-	>;
-};
+type HooksPlugin = Plugin<YogaInitialContext, Record<string, unknown>, UserContext> &
+	MeshPlugin<UserContext>;
 
 export default async function hooksPlugin(config: PluginConfig): Promise<HooksPlugin> {
 	try {
 		const { beforeAll, afterAll, beforeSource, afterSource, baseDir, logger } = config;
-
-		// Unchanging server context
-		const serverContext: Partial<UserContext> = {};
+		let isIntrospectionQuery = false;
 
 		// Check if any hooks are configured
 		const hasAnyHooks = beforeAll || afterAll || beforeSource || afterSource;
@@ -107,14 +76,25 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 			: null;
 		return {
 			async onExecute({ args, setResultAndStopExecution, extendContext }) {
-				const query = args.contextValue?.params?.query;
-				const { document, contextValue: context } = args;
+				const { document, contextValue: context, operationName } = args;
 				const { params, request } = context || {};
+
+				// Ignore introspection queries
+				const query = args.contextValue?.params?.query;
+				isIntrospectionQuery =
+					(operationName && operationName === 'IntrospectionQuery') ||
+					(query && query.includes('query IntrospectionQuery'));
+				if (isIntrospectionQuery) {
+					isIntrospectionQuery = true;
+					return {};
+				}
+
+				// Make the operation document available in the user context
+				extendContext({
+					document,
+				});
+
 				const headers = Object.fromEntries(request.headers.entries());
-				const secrets = ('secrets' in context ? context.secrets : {}) as Record<string, string>;
-				const state = ('state' in context ? context.state : {}) as StateApi;
-				serverContext.secrets = secrets;
-				serverContext.state = state;
 				let body = {};
 				if (request && request.body) {
 					body = request.body;
@@ -133,14 +113,8 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 					}
 				};
 
-				// Ignore introspection queries
-				const operationName = args.operationName;
-				const isIntrospectionQuery =
-					operationName === 'IntrospectionQuery' ||
-					(query && query.includes('query IntrospectionQuery'));
-				if (isIntrospectionQuery) {
-					return {};
-				}
+				const secrets = ('secrets' in context ? context.secrets : {}) as Record<string, string>;
+				const state = ('state' in context ? context.state : {}) as StateApi;
 
 				/**
 				 * Execute Before All Hook
@@ -170,7 +144,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						onExecuteDone: async ({
 							result,
 						}: {
-							result: { data?: GraphQLData; errors?: GraphQLErrorType[] };
+							result: { data?: GraphQLData; errors?: GraphQLError[] };
 						}) => {
 							await executeAfterAllHook(afterAllHookHandler, {
 								params,
@@ -191,19 +165,24 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 
 				return {};
 			},
-			async onFetch({ info, options }) {
-				if (!info || !info.operation || (!config.afterSource && !config.beforeSource)) {
+			async onFetch({ info, options, context }) {
+				// Ignore situations where info is not defined (schema generation) or when not configured
+				if (!info || (!config.afterSource && !config.beforeSource)) {
 					return;
 				}
+
 				// Ignore introspection queries
-				const operationName = info.operation.name?.value;
-				const isIntrospectionQuery = operationName === 'IntrospectionQuery';
 				if (isIntrospectionQuery) {
 					return;
 				}
+
+				const secrets = (context && 'secrets' in context ? context.secrets : {}) as Record<
+					string,
+					string
+				>;
+				const state = (context && 'state' in context ? context.state : {}) as StateApi;
 				const sourceName = (info as GraphQLResolveInfoWithSourceName).sourceName;
 				const beforeSourceHooks = config.beforeSource?.[sourceName] || [];
-				const afterSourceHooks = config.afterSource?.[sourceName] || [];
 				if (beforeSourceHooks) {
 					const beforeSourceHookHandler = getBeforeSourceHookHandler({
 						baseDir,
@@ -213,14 +192,16 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 					});
 
 					try {
-						const payload = {
+						const payload: BeforeSourceHookFunctionPayload = {
 							context: {
-								secrets: serverContext.secrets!,
-								state: serverContext.state!,
+								request: context.request,
+								params: context.params,
+								secrets: secrets!,
+								state: state!,
 								logger,
 							},
 							request: options,
-							operation: info.operation,
+							document: context.document,
 							sourceName,
 						};
 
@@ -240,6 +221,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						);
 					}
 				}
+
 				return async ({
 					response,
 					setResponse,
@@ -247,6 +229,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 					response: Response;
 					setResponse: (response: Response) => void;
 				}) => {
+					const afterSourceHooks = config.afterSource?.[sourceName] || [];
 					const afterSourceHookHandler = getAfterSourceHookHandler({
 						baseDir,
 						afterSource: afterSourceHooks,
@@ -254,14 +237,15 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						memoizedFns,
 					});
 					try {
-						const payload = {
+						const payload: AfterSourceHookFunctionPayload = {
 							context: {
-								secrets: serverContext.secrets!,
-								state: serverContext.state!,
+								request: context.request,
+								params: context.params,
+								secrets: secrets!,
+								state: state!,
 								logger,
 							},
-							request: options,
-							operation: info.operation,
+							document: context.document,
 							sourceName,
 							response,
 							setResponse,

@@ -10,8 +10,7 @@ OF ANY KIND, either express or implied. See the License for the specific languag
 governing permissions and limitations under the License.
 */
 
-import { OperationDefinitionNode } from 'graphql';
-import { GraphQLParams, YogaInitialContext } from 'graphql-yoga';
+import { GraphQLParams, YogaInitialContext, YogaLogger } from 'graphql-yoga';
 import type { GraphQLError, ExecutionResult } from 'graphql';
 
 // Re-export GraphQLError from graphql package
@@ -52,6 +51,8 @@ export interface StateApi {
 }
 
 export interface UserContext extends YogaInitialContext {
+	operationName?: string;
+	document?: unknown;
 	headers?: Record<string, string>;
 	secrets?: Record<string, string>;
 	state?: StateApi;
@@ -78,28 +79,39 @@ export interface Module {
 	default?: Module;
 }
 
+export interface HookFunctionPayloadContext {
+	request: Request;
+	params: GraphQLParams;
+	body?: unknown;
+	headers?: Record<string, string>;
+	secrets?: Record<string, string>;
+	state?: StateApi;
+	logger?: YogaLogger;
+}
+
 export type HookFunctionPayload = {
-	context: PayloadContext;
-	document: unknown;
-	result?: GraphQLResult;
+	context: HookFunctionPayloadContext;
+	document?: unknown;
 };
 
-export type SourceHookFunctionPayload = {
-	sourceName: string;
+export type SourceHookFunctionPayload = HookFunctionPayload & {
+	sourceName?: string;
+};
+
+export type BeforeAllHookFunctionPayload = HookFunctionPayload & {};
+
+export type BeforeSourceHookFunctionPayload = SourceHookFunctionPayload & {
 	request: RequestInit;
-	operation: OperationDefinitionNode;
+};
+
+export type AfterSourceHookFunctionPayload = SourceHookFunctionPayload & {
 	response?: Response;
 	setResponse?: (response: Response) => void;
 };
 
-export interface PayloadContext {
-	request: Request;
-	params: GraphQLParams;
-	body: unknown;
-	headers?: Record<string, string>;
-	secrets?: Record<string, string>;
-	state?: StateApi;
-}
+export type AfterAllHookFunctionPayload = HookFunctionPayload & {
+	result?: GraphQLResult;
+};
 
 export type HookFunction = (
 	payload: HookFunctionPayload | SourceHookFunctionPayload,
