@@ -12,7 +12,7 @@ governing permissions and limitations under the License.
 
 import type { YogaLogger } from 'graphql-yoga';
 import { HookConfig, HookFunctionPayload, HookStatus, MemoizedFns } from './types';
-import { handleHookExecutionError, handleHookHandlerError } from './utils/errorHandler';
+import { handleHookExecutionError, handleHookHandlerError } from './errors';
 import { resolveHookFunction } from './utils/hookResolver';
 
 export interface BeforeAllHookBuildConfig {

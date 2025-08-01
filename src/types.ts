@@ -134,4 +134,4 @@ export enum HookStatus {
 }
 
 // Export error codes for uniform error handling
-export { PLUGIN_HOOKS_ERROR_CODES, type PluginHooksErrorCode } from './errorCodes';
+export { PLUGIN_HOOKS_ERROR_CODES, type PluginHooksErrorCode } from './errors';

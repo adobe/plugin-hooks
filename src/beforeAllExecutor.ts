@@ -14,7 +14,7 @@ import { GraphQLError } from 'graphql/error';
 import getBeforeAllHookHandler, { UpdateContextFn } from './handleBeforeAllHooks';
 import type { HookConfig, MemoizedFns, GraphQLResult, StateApi } from './types';
 import type { YogaLogger, GraphQLParams } from 'graphql-yoga';
-import { PLUGIN_HOOKS_ERROR_CODES } from './errorCodes';
+import { PLUGIN_HOOKS_ERROR_CODES } from './errors';
 
 export interface BeforeAllExecutionContext {
 	params: GraphQLParams;

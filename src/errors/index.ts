@@ -10,10 +10,5 @@ OF ANY KIND, either express or implied. See the License for the specific languag
 governing permissions and limitations under the License.
 */
 
-/**
- * Import a module.
- * @param modulePath Module path.
- */
-export default async function importFn(modulePath) {
-	return import(modulePath);
-}
+export * from './errorCodes';
+export * from './errorHandler';

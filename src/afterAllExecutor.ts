@@ -21,7 +21,7 @@ import type {
 	StateApi,
 } from './types';
 import type { YogaLogger, GraphQLParams } from 'graphql-yoga';
-import { PLUGIN_HOOKS_ERROR_CODES } from './errorCodes';
+import { PLUGIN_HOOKS_ERROR_CODES } from './errors';
 
 export interface AfterAllExecutionContext {
 	params: GraphQLParams;

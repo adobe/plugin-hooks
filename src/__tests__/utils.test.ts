@@ -163,7 +163,6 @@ describe('utils', () => {
 	});
 	describe('getWrappedLocalModuleFunction', async () => {
 		test('should wrap named export', async () => {
-			// @ts-expect-error mock hook function with no type declaration
 			const mockModule = await import('../__fixtures__/hookAsync.js');
 			const result = await getWrappedLocalModuleHookFunction(mockModule, 'mockHook', {
 				baseDir: '',
@@ -174,8 +173,8 @@ describe('utils', () => {
 			expect(result).toBeTypeOf('function');
 		});
 		test('should wrap named default export', async () => {
-			// @ts-expect-error mock hook function with no type declaration
 			const mockModule = await import('../__fixtures__/hookNamedDefaultExportAsync.js');
+			// @ts-expect-error mock function
 			const result = await getWrappedLocalModuleHookFunction(mockModule, 'mockHook', {
 				baseDir: '',
 				importFn: vi.fn(),
@@ -185,8 +184,8 @@ describe('utils', () => {
 			expect(result).toBeTypeOf('function');
 		});
 		test('should wrap default export', async () => {
-			// @ts-expect-error mock hook function with no type declaration
 			const mockModule = await import('../__fixtures__/hookDefaultExportAsync.js');
+			// @ts-expect-error mock function
 			const result = await getWrappedLocalModuleHookFunction(mockModule, 'mockHook', {
 				baseDir: '',
 				importFn: vi.fn(),
@@ -211,7 +210,6 @@ describe('utils', () => {
 		describe('wrapped hook function', () => {
 			describe('with blocking set to true', () => {
 				test('should return expected success object', async () => {
-					// @ts-expect-error mock hook function with no type declaration
 					const mockModule = await import('../__fixtures__/hookAsync.js');
 					const hookFunction = await getWrappedLocalModuleHookFunction(mockModule, 'mockHook', {
 						baseDir: '',
@@ -224,7 +222,6 @@ describe('utils', () => {
 					);
 				});
 				test('should return expected error object with message', async () => {
-					// @ts-expect-error mock hook function with no type declaration
 					const mockModule = await import('../__fixtures__/hookAsync.js');
 					const hookFunction = await getWrappedLocalModuleHookFunction(mockModule, 'mockHook', {
 						baseDir: '',
@@ -239,7 +236,6 @@ describe('utils', () => {
 			});
 			describe('with blocking set to false', async () => {
 				test('should return generic success object', async () => {
-					// @ts-expect-error mock hook function with no type declaration
 					const mockModule = await import('../__fixtures__/hookAsync.js');
 					const hookFunction = await getWrappedLocalModuleHookFunction(mockModule, 'mockHook', {
 						baseDir: '',
