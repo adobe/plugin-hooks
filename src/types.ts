@@ -135,3 +135,15 @@ export enum HookStatus {
 
 // Export error codes for uniform error handling
 export { PLUGIN_HOOKS_ERROR_CODES, type PluginHooksErrorCode } from './errors';
+
+/**
+ * Function to update the context with headers or other data.
+ * @param data
+ */
+export type UpdateContextFn = (data: { headers?: Record<string, string> }) => void;
+
+/**
+ * Function to set the result of the GraphQL execution and stop further execution.
+ * @param result
+ */
+export type SetResultAndStopExecutionFn = (result: GraphQLResult) => void;

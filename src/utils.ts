@@ -89,6 +89,10 @@ export function parseResponseBody(rawBody: string, isOk: boolean): HookResponse 
 	}
 }
 
+export function isValidResponseObject(response: unknown) {
+	return !!(response && typeof response === 'object' && 'status' in response);
+}
+
 /**
  * Get remote hook function wrapped in utilities to handle timeouts, errors, and blocking state.
  * @param url Remote function URL.
@@ -132,12 +136,12 @@ export async function getWrappedRemoteHookFunction(
 					const rawBody = await response.text();
 					const body = parseResponseBody(rawBody, response.ok);
 					if (body.status.toUpperCase() === HookStatus.SUCCESS) {
-						resolve(body);
+						return resolve(body);
 					} else {
-						reject(body);
+						return reject(body);
 					}
 				} else {
-					resolve({
+					return resolve({
 						status: HookStatus.SUCCESS,
 						message: 'Remote function invoked successfully',
 					});
@@ -175,67 +179,79 @@ export async function getWrappedLocalModuleHookFunction(
 			mod.default ||
 			mod) as HookFunction;
 	} catch (error: unknown) {
-		logger.error('Error while invoking local module function %s', composerFn);
+		logger.error('Error while invoking local module function %s', exportName);
 		logger.error(error);
 		return Promise.reject({
 			status: HookStatus.ERROR,
 			message:
 				(error instanceof Error && error.message) ||
-				`Unable to invoke local module function ${composerFn}`,
+				`Unable to invoke local module function ${exportName}`,
 		});
 	}
 	return (data: HookFunctionPayload | SourceHookFunctionPayload) => {
 		return new Promise<HookResponse>((resolve, reject: (reason?: HookResponse) => void) => {
 			try {
 				if (!composerFn) {
-					reject({
+					return reject({
 						status: HookStatus.ERROR,
-						message: `Unable to invoke local function ${composerFn}`,
+						message: `Unable to invoke local function ${exportName}`,
 					});
 				}
-				logger.debug('Invoking local module function %o', composerFn);
+				logger.debug('Invoking local module function %s', exportName);
 				const result = composerFn(data);
 				if (blocking) {
 					if (result instanceof Promise) {
 						timedPromise(result, 30000)
 							.then((res: HookResponse) => {
+								if (!isValidResponseObject(res)) {
+									return reject({
+										status: HookStatus.ERROR,
+										message: `Invalid return value missing "status" property when invoking local module function ${exportName}`,
+									});
+								}
 								if (res.status.toUpperCase() === HookStatus.SUCCESS) {
-									resolve(res);
+									return resolve(res);
 								} else {
-									reject(res);
+									return reject(res);
 								}
 							})
 							.catch((error: unknown) => {
-								logger.error('Error while invoking local module function %o', composerFn);
+								logger.error('Error while invoking local module function %s', exportName);
 								logger.error(error);
-								reject({
+								return reject({
 									status: HookStatus.ERROR,
 									message:
 										(error instanceof Error && error.message) ||
-										`Error while invoking local module function ${composerFn}`,
+										`Error while invoking local module function ${exportName}`,
 								});
 							});
 					} else {
+						if (!isValidResponseObject(result)) {
+							return reject({
+								status: HookStatus.ERROR,
+								message: `Invalid return value missing "status" property when invoking local module function ${exportName}`,
+							});
+						}
 						if (result.status.toUpperCase() === HookStatus.SUCCESS) {
-							resolve(result);
+							return resolve(result);
 						} else {
-							reject(result);
+							return reject(result);
 						}
 					}
 				} else {
-					resolve({
+					return resolve({
 						status: HookStatus.SUCCESS,
 						message: 'Local module function invoked successfully',
 					});
 				}
 			} catch (error: unknown) {
-				logger.error('Error while invoking local module function %o', composerFn);
+				logger.error('Error while invoking local module function %o', exportName);
 				logger.error(error);
-				reject({
+				return reject({
 					status: HookStatus.ERROR,
 					message:
 						(error instanceof Error && error.message) ||
-						`Error while invoking local module function ${composerFn}`,
+						`Error while invoking local module function ${exportName}`,
 				});
 			}
 		});
@@ -273,52 +289,64 @@ export async function getWrappedLocalHookFunction(
 		return new Promise<HookResponse>((resolve, reject: (reason?: HookResponse) => void) => {
 			try {
 				if (!composerFn) {
-					reject({
+					return reject({
 						status: HookStatus.ERROR,
 						message: `Unable to invoke local function ${composerFnPath}`,
 					});
 				}
-				logger.debug('Invoking local function %o', composerFn);
+				logger.debug('Invoking local function %s', composerFnPath);
 				const result = composerFn(data);
 				if (blocking) {
 					if (result instanceof Promise) {
 						timedPromise(result, 30000)
 							.then((res: HookResponse) => {
+								if (!isValidResponseObject(res)) {
+									return reject({
+										status: HookStatus.ERROR,
+										message: `Invalid return value missing "status" property when invoking local function ${composerFnPath}`,
+									});
+								}
 								if (res.status.toUpperCase() === HookStatus.SUCCESS) {
-									resolve(res);
+									return resolve(res);
 								} else {
-									reject(res);
+									return reject(res);
 								}
 							})
 							.catch((error: Error) => {
-								logger.error('error while invoking local function %o', composerFn);
+								logger.error('error while invoking local function %s', composerFnPath);
 								logger.error(error);
-								reject({
+								return reject({
 									status: HookStatus.ERROR,
-									message: error.message || `Error while invoking local function ${composerFn}`,
+									message: error.message || `Error while invoking local function ${composerFnPath}`,
 								});
 							});
 					} else {
+						if (!isValidResponseObject(result)) {
+							return reject({
+								status: HookStatus.ERROR,
+								message: `Invalid return value missing "status" property when invoking local function ${composerFnPath}`,
+							});
+						}
 						if (result.status.toUpperCase() === HookStatus.SUCCESS) {
-							resolve(result);
+							return resolve(result);
 						} else {
-							reject(result);
+							return reject(result);
 						}
 					}
 				} else {
-					resolve({
+					return resolve({
 						status: HookStatus.SUCCESS,
 						message: 'Local function invoked successfully',
 					});
 				}
 			} catch (error: unknown) {
-				logger.error('Error while invoking local function %o', composerFn);
+				logger.error('Error while invoking local function %s', composerFnPath);
 				logger.error(error);
-				reject({
+				return reject({
 					status: HookStatus.ERROR,
 					message:
 						(error instanceof Error && error.message) ||
-						`Error while invoking local function ${composerFn}`,
+						`Error while invoking local function ${composerFnPath}`,
 				});
 			}
 		});

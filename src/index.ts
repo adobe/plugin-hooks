@@ -10,26 +10,26 @@ OF ANY KIND, either express or implied. See the License for the specific languag
 governing permissions and limitations under the License.
 */
 
-import { GraphQLError } from 'graphql';
-import { UpdateContextFn } from './handleBeforeAllHooks';
-import { createBeforeAllHookHandler, executeBeforeAllHook } from './beforeAllExecutor';
-import { createAfterAllHookHandler, executeAfterAllHook } from './afterAllExecutor';
+import { MeshPlugin } from '@graphql-mesh/types';
+import { GraphQLError, GraphQLResolveInfo } from 'graphql';
+import type { Plugin, YogaInitialContext, YogaLogger } from 'graphql-yoga';
+import getAfterSourceHookHandler from './handleAfterSourceHooks';
+import getBeforeSourceHookHandler from './handleBeforeSourceHooks';
+import { AfterAllHook } from './hooks/afterAllHook';
+import { BeforeAllHook } from './hooks/beforeAllHook';
+import { HookLifecycleEvent, HookLifecycleRegistry } from './hooks/hookLifecycleRegistry';
 import {
-	HookConfig,
-	MemoizedFns,
-	UserContext,
-	GraphQLData,
-	SourceHookConfig,
-	StateApi,
 	AfterSourceHookFunctionPayload,
 	BeforeSourceHookFunctionPayload,
+	GraphQLData,
+	HookConfig,
+	MemoizedFns,
 	PLUGIN_HOOKS_ERROR_CODES,
+	SourceHookConfig,
+	StateApi,
+	UpdateContextFn,
+	UserContext,
 } from './types';
-import getBeforeSourceHookHandler from './handleBeforeSourceHooks';
-import type { YogaLogger, Plugin, YogaInitialContext } from 'graphql-yoga';
-import { MeshPlugin } from '@graphql-mesh/types';
-import { GraphQLResolveInfo } from 'graphql';
-import getAfterSourceHookHandler from './handleAfterSourceHooks';
 
 // Export types for developer experience working w/ plugins
 export type { HookFunction, HookFunctionPayload, HookResponse, HookStatus } from './types';
@@ -52,6 +52,7 @@ type HooksPlugin = Plugin<YogaInitialContext, Record<string, unknown>, UserConte
 
 export default async function hooksPlugin(config: PluginConfig): Promise<HooksPlugin> {
 	try {
+		// Configure hooks
 		const { beforeAll, afterAll, beforeSource, afterSource, baseDir, logger } = config;
 		let isIntrospectionQuery = false;
 
@@ -63,18 +64,33 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				onFetch: async () => {},
 			};
 		}
-
 		const memoizedFns: MemoizedFns = {
 			afterSource: {},
 			beforeSource: {},
 		};
-		const beforeAllHookHandler = beforeAll
-			? createBeforeAllHookHandler(beforeAll, baseDir, logger, memoizedFns)
-			: null;
-		const afterAllHookHandler = afterAll
-			? createAfterAllHookHandler(afterAll, baseDir, logger, memoizedFns)
-			: null;
+
+		const hookLifecycleRegistry = new HookLifecycleRegistry();
+
+		if (beforeAll) {
+			new BeforeAllHook({
+				config: beforeAll,
+				baseDir,
+				logger,
+				memoizedFns,
+			}).addToHookLifecycleRegistry(hookLifecycleRegistry);
+		}
+
+		if (afterAll) {
+			new AfterAllHook({
+				config: afterAll,
+				baseDir,
+				logger,
+				memoizedFns,
+			}).addToHookLifecycleRegistry(hookLifecycleRegistry);
+		}
+
 		return {
+			// Execute hooks
 			async onExecute({ args, setResultAndStopExecution, extendContext }) {
 				const { document, contextValue: context, operationName } = args;
 				const { params, request } = context || {};
@@ -119,46 +135,84 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				/**
 				 * Execute Before All Hook
 				 */
-				if (beforeAllHookHandler) {
-					try {
-						await executeBeforeAllHook(beforeAllHookHandler, {
-							params,
-							request,
-							body,
-							headers,
-							secrets,
-							state,
-							logger,
+				try {
+					await hookLifecycleRegistry.invokeHooks({
+						event: HookLifecycleEvent.ON_EXECUTE,
+						payload: {
+							context: {
+								params,
+								request,
+								headers,
+								body,
+								secrets,
+								state,
+								logger,
+							},
 							document,
-							updateContext,
-							setResultAndStopExecution,
-						});
-					} catch {
-						// Error already handled by executeBeforeAllHook, just return to stop execution
-						return {};
-					}
+						},
+						updateContext,
+						setResultAndStopExecution,
+					});
+				} catch (err: unknown) {
+					logger.error('Error while invoking hook %o', err);
+					setResultAndStopExecution({
+						data: null,
+						errors: [
+							new GraphQLError(
+								(err instanceof Error && err.message) || `Error while invoking hook`,
+								{
+									extensions: {
+										code: PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS,
+									},
+								},
+							),
+						],
+					});
 				}
 
-				if (afterAllHookHandler) {
+				if (afterAll) {
 					return {
 						onExecuteDone: async ({
 							result,
 						}: {
 							result: { data?: GraphQLData; errors?: GraphQLError[] };
 						}) => {
-							await executeAfterAllHook(afterAllHookHandler, {
-								params,
-								request,
-								body,
-								headers,
-								secrets,
-								state,
-								logger,
-								document,
-								result,
-								setResultAndStopExecution,
-								afterAll: afterAll!,
-							});
+							try {
+								console.log('zzz');
+								console.log(JSON.stringify(result));
+								await hookLifecycleRegistry.invokeHooks({
+									event: HookLifecycleEvent.ON_EXECUTE_DONE,
+									payload: {
+										context: {
+											params,
+											request,
+											headers,
+											body,
+											secrets,
+											state,
+											logger,
+										},
+										document,
+									},
+									result,
+									setResultAndStopExecution,
+								});
+							} catch (err: unknown) {
+								logger.error('Error while invoking hook %o', err);
+								setResultAndStopExecution({
+									data: null,
+									errors: [
+										new GraphQLError(
+											(err instanceof Error && err.message) || `Error while invoking hook`,
+											{
+												extensions: {
+													code: PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS,
+												},
+											},
+										),
+									],
+								});
+							}
 						},
 					};
 				}

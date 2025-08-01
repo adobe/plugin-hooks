@@ -15,6 +15,9 @@ governing permissions and limitations under the License.
  * Format: ERROR_PLUGIN_HOOKS_[HOOK_TYPE]
  */
 export const PLUGIN_HOOKS_ERROR_CODES = {
+	/** Error during general hook execution */
+	ERROR_PLUGIN_HOOKS: 'ERROR_PLUGIN_HOOKS',
+
 	/** Error during beforeAll hook execution */
 	ERROR_PLUGIN_HOOKS_BEFORE_ALL: 'ERROR_PLUGIN_HOOKS_BEFORE_ALL',
 

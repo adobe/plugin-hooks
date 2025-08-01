@@ -11,8 +11,9 @@ governing permissions and limitations under the License.
 */
 
 import type { YogaLogger } from 'graphql-yoga';
-import { HookConfig, HookFunctionPayload, HookStatus, MemoizedFns, HookResponse } from './types';
 import { handleHookExecutionError, handleHookHandlerError } from './errors';
+import { HookType } from './hooks/hook';
+import { HookConfig, HookFunctionPayload, HookResponse, HookStatus, MemoizedFns } from './types';
 import { resolveHookFunction } from './utils/hookResolver';
 
 export interface AfterAllHookBuildConfig {
@@ -36,7 +37,7 @@ const getAfterAllHookHandler =
 			// Resolve hook function using shared utility
 			const afterAllFn = await resolveHookFunction({
 				hookConfig: afterAll,
-				hookType: 'afterAll',
+				hookType: HookType.AFTER_ALL,
 				baseDir,
 				logger,
 				memoizedFns,

@@ -11,6 +11,7 @@ governing permissions and limitations under the License.
 */
 
 import type { YogaLogger } from 'graphql-yoga';
+import { HookType } from '../hooks/hook';
 import type {
 	AfterSourceHookFunctionPayload,
 	BeforeSourceHookFunctionPayload,
@@ -33,7 +34,7 @@ import {
  */
 export interface HookResolverConfig {
 	hookConfig: HookConfig;
-	hookType: 'beforeAll' | 'afterAll';
+	hookType: HookType;
 	baseDir: string;
 	logger: YogaLogger;
 	memoizedFns: MemoizedFns;
@@ -122,7 +123,7 @@ export async function resolveHookFunction(
 	const { hookConfig, hookType, memoizedFns } = config;
 
 	// Check if function is already memoized
-	const memoizedFn = memoizedFns[hookType];
+	const memoizedFn = memoizedFns[hookType] as HookFunction | undefined;
 	if (memoizedFn) {
 		return memoizedFn;
 	}
@@ -131,6 +132,7 @@ export async function resolveHookFunction(
 
 	// Memoize the resolved function
 	if (hookFunction) {
+		// @ts-expect-error zzz
 		memoizedFns[hookType] = hookFunction;
 	}
 
