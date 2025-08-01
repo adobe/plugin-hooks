@@ -26,9 +26,35 @@ export type GraphQLResult = {
 	errors?: GraphQLError[];
 };
 
+/**
+ * State API interface for managing key-value pairs.
+ */
+export interface StateApi {
+	/**
+	 * Get a value by key.
+	 * @param key Key to retrieve.
+	 */
+	get(key: string): Promise<string | null>;
+
+	/**
+	 * Put a key-value pair with optional TTL.
+	 * @param key Key to store.
+	 * @param value Value to store.
+	 * @param config Optional configuration object that may contain a TTL value in seconds.
+	 */
+	put(key: string, value: string, config?: { ttl?: number }): Promise<void>;
+
+	/**
+	 * Delete a key-value pair.
+	 * @param key
+	 */
+	delete(key: string): Promise<void>;
+}
+
 export interface UserContext extends YogaInitialContext {
 	headers?: Record<string, string>;
 	secrets?: Record<string, string>;
+	state?: StateApi;
 }
 
 export type SourceHookConfig = Record<string, HookConfig[]>;
@@ -72,6 +98,7 @@ export interface PayloadContext {
 	body: unknown;
 	headers?: Record<string, string>;
 	secrets?: Record<string, string>;
+	state?: StateApi;
 }
 
 export type HookFunction = (

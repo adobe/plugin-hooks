@@ -18,6 +18,7 @@ import type {
 	GraphQLData,
 	GraphQLError as GraphQLErrorType,
 	GraphQLResult,
+	StateApi,
 } from './types';
 import type { YogaLogger, GraphQLParams } from 'graphql-yoga';
 import { PLUGIN_HOOKS_ERROR_CODES } from './errorCodes';
@@ -28,10 +29,11 @@ export interface AfterAllExecutionContext {
 	body: unknown;
 	headers: Record<string, string>;
 	secrets: Record<string, string>;
+	state: StateApi;
+	logger: YogaLogger;
 	document: unknown;
 	result: { data?: GraphQLData; errors?: GraphQLErrorType[] };
 	setResultAndStopExecution: (result: GraphQLResult) => void;
-	logger: YogaLogger;
 	afterAll: HookConfig;
 }
 
@@ -45,17 +47,18 @@ export async function executeAfterAllHook(
 		body,
 		headers,
 		secrets,
+		state,
+		logger,
 		document,
 		result,
 		setResultAndStopExecution,
-		logger,
 		afterAll,
 	} = context;
 
 	try {
 		// Create payload with the execution result
 		const payload = {
-			context: { params, request, body, headers, secrets },
+			context: { params, request, body, headers, secrets, state, logger },
 			document,
 			result, // This is the GraphQL execution result
 		};

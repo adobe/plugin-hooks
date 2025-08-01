@@ -10,16 +10,19 @@ OF ANY KIND, either express or implied. See the License for the specific languag
 governing permissions and limitations under the License.
 */
 
+import { GraphQLError } from 'graphql/error';
 import { UpdateContextFn } from './handleBeforeAllHooks';
 import { createBeforeAllHookHandler, executeBeforeAllHook } from './beforeAllExecutor';
 import { createAfterAllHookHandler, executeAfterAllHook } from './afterAllExecutor';
-import type {
+import {
 	HookConfig,
 	MemoizedFns,
 	UserContext,
 	GraphQLData,
 	GraphQLError as GraphQLErrorType,
 	SourceHookConfig,
+	StateApi,
+	PLUGIN_HOOKS_ERROR_CODES,
 } from './types';
 import getBeforeSourceHookHandler from './handleBeforeSourceHooks';
 import type { YogaLogger, Plugin, YogaInitialContext } from 'graphql-yoga';
@@ -80,6 +83,9 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 	try {
 		const { beforeAll, afterAll, beforeSource, afterSource, baseDir, logger } = config;
 
+		// Unchanging server context
+		const serverContext: Partial<UserContext> = {};
+
 		// Check if any hooks are configured
 		const hasAnyHooks = beforeAll || afterAll || beforeSource || afterSource;
 		if (!hasAnyHooks) {
@@ -88,6 +94,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				onFetch: async () => {},
 			};
 		}
+
 		const memoizedFns: MemoizedFns = {
 			afterSource: {},
 			beforeSource: {},
@@ -105,6 +112,9 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				const { params, request } = context || {};
 				const headers = Object.fromEntries(request.headers.entries());
 				const secrets = ('secrets' in context ? context.secrets : {}) as Record<string, string>;
+				const state = ('state' in context ? context.state : {}) as StateApi;
+				serverContext.secrets = secrets;
+				serverContext.state = state;
 				let body = {};
 				if (request && request.body) {
 					body = request.body;
@@ -143,6 +153,8 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 							body,
 							headers,
 							secrets,
+							state,
+							logger,
 							document,
 							updateContext,
 							setResultAndStopExecution,
@@ -166,10 +178,11 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 								body,
 								headers,
 								secrets,
+								state,
+								logger,
 								document,
 								result,
 								setResultAndStopExecution,
-								logger,
 								afterAll: afterAll!,
 							});
 						},
@@ -199,17 +212,33 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						memoizedFns,
 					});
 
-					const payload = {
-						request: options,
-						operation: info.operation,
-						sourceName,
-					};
+					try {
+						const payload = {
+							context: {
+								secrets: serverContext.secrets!,
+								state: serverContext.state!,
+								logger,
+							},
+							request: options,
+							operation: info.operation,
+							sourceName,
+						};
 
-					await beforeSourceHookHandler({
-						payload,
-						hookType: 'beforeSource',
-						sourceName,
-					});
+						await beforeSourceHookHandler({
+							payload,
+							hookType: 'beforeSource',
+							sourceName,
+						});
+					} catch (err: unknown) {
+						throw new GraphQLError(
+							(err instanceof Error && err.message) || 'Error while executing beforeSource hook',
+							{
+								extensions: {
+									code: PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_BEFORE_SOURCE,
+								},
+							},
+						);
+					}
 				}
 				return async ({
 					response,
@@ -224,18 +253,34 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						logger,
 						memoizedFns,
 					});
-					const payload = {
-						request: options,
-						operation: info.operation,
-						sourceName,
-						response,
-						setResponse,
-					};
-					await afterSourceHookHandler({
-						payload,
-						hookType: 'afterSource',
-						sourceName,
-					});
+					try {
+						const payload = {
+							context: {
+								secrets: serverContext.secrets!,
+								state: serverContext.state!,
+								logger,
+							},
+							request: options,
+							operation: info.operation,
+							sourceName,
+							response,
+							setResponse,
+						};
+						await afterSourceHookHandler({
+							payload,
+							hookType: 'afterSource',
+							sourceName,
+						});
+					} catch (err: unknown) {
+						throw new GraphQLError(
+							(err instanceof Error && err.message) || 'Error while executing afterSource hook',
+							{
+								extensions: {
+									code: PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_AFTER_SOURCE,
+								},
+							},
+						);
+					}
 				};
 			},
 		};

@@ -18,6 +18,12 @@ export const PLUGIN_HOOKS_ERROR_CODES = {
 	/** Error during beforeAll hook execution */
 	ERROR_PLUGIN_HOOKS_BEFORE_ALL: 'ERROR_PLUGIN_HOOKS_BEFORE_ALL',
 
+	/** Error during beforeSource hook execution */
+	ERROR_PLUGIN_HOOKS_BEFORE_SOURCE: 'ERROR_PLUGIN_HOOKS_BEFORE_SOURCE',
+
+	/** Error during afterSource hook execution */
+	ERROR_PLUGIN_HOOKS_AFTER_SOURCE: 'ERROR_PLUGIN_HOOKS_AFTER_SOURCE',
+
 	/** Error during afterAll hook execution */
 	ERROR_PLUGIN_HOOKS_AFTER_ALL: 'ERROR_PLUGIN_HOOKS_AFTER_ALL',
 } as const;
