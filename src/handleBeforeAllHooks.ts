@@ -29,6 +29,10 @@ export interface BeforeAllHookExecConfig {
 
 export type UpdateContextFn = (data: { headers?: Record<string, string> }) => void;
 
+/**
+ * Gets the handler function for the `beforeAll` hook. Wraps the blackbox hook function with common logic/error handling.
+ * @param fnBuildConfig Build configuration.
+ */
 const getBeforeAllHookHandler =
 	(fnBuildConfig: BeforeAllHookBuildConfig) =>
 	async (fnExecConfig: BeforeAllHookExecConfig): Promise<void> => {

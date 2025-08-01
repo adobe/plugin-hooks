@@ -23,6 +23,10 @@ export interface BeforeSourceHookBuildConfig {
 	memoizedFns: MemoizedFns;
 }
 
+/**
+ * Gets the handler function for the `beforeSource` hook. Wraps the blackbox hook function with common logic/error handling.
+ * @param fnBuildConfig Build configuration.
+ */
 const getBeforeSourceHookHandler = (fnBuildConfig: BeforeSourceHookBuildConfig) => {
 	return async (fnExecConfig: SourceHookExecConfig) => {
 		const { baseDir, logger, beforeSource, memoizedFns } = fnBuildConfig;

@@ -11,9 +11,10 @@ governing permissions and limitations under the License.
 */
 
 import { GraphQLError } from 'graphql';
-import { UpdateContextFn } from './handleBeforeAllHooks';
-import { createBeforeAllHookHandler, executeBeforeAllHook } from './beforeAllExecutor';
-import { createAfterAllHookHandler, executeAfterAllHook } from './afterAllExecutor';
+import getAfterAllHookHandler from './handleAfterAllHooks';
+import getBeforeAllHookHandler, { UpdateContextFn } from './handleBeforeAllHooks';
+import { executeBeforeAllHook } from './beforeAllExecutor';
+import { executeAfterAllHook } from './afterAllExecutor';
 import {
 	HookConfig,
 	MemoizedFns,
@@ -69,10 +70,10 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 			beforeSource: {},
 		};
 		const beforeAllHookHandler = beforeAll
-			? createBeforeAllHookHandler(beforeAll, baseDir, logger, memoizedFns)
+			? getBeforeAllHookHandler({ beforeAll, baseDir, logger, memoizedFns })
 			: null;
 		const afterAllHookHandler = afterAll
-			? createAfterAllHookHandler(afterAll, baseDir, logger, memoizedFns)
+			? getAfterAllHookHandler({ afterAll, baseDir, logger, memoizedFns })
 			: null;
 		return {
 			async onExecute({ args, setResultAndStopExecution, extendContext }) {

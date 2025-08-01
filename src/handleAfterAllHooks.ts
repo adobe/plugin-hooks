@@ -26,6 +26,10 @@ export interface AfterAllHookExecConfig {
 	payload: HookFunctionPayload;
 }
 
+/**
+ * Gets the handler function for the `afterAll` hook. Wraps the blackbox hook function with common logic/error handling.
+ * @param fnBuildConfig Build configuration.
+ */
 const getAfterAllHookHandler =
 	(fnBuildConfig: AfterAllHookBuildConfig) =>
 	async (fnExecConfig: AfterAllHookExecConfig): Promise<HookResponse | undefined> => {

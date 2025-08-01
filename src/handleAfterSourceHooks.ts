@@ -23,6 +23,10 @@ export interface AfterSourceHookBuildConfig {
 	memoizedFns: MemoizedFns;
 }
 
+/**
+ * Gets the handler function for the `afterSource` hook. Wraps the blackbox hook function with common logic/error handling.
+ * @param fnBuildConfig Build configuration.
+ */
 const getAfterSourceHookHandler = (fnBuildConfig: AfterSourceHookBuildConfig) => {
 	return async (fnExecConfig: SourceHookExecConfig) => {
 		const { baseDir, logger, afterSource, memoizedFns } = fnBuildConfig;
