@@ -16,7 +16,6 @@ import getBeforeSourceHookHandler, {
 import { HookResponse, HookStatus } from '../types';
 import { mockLogger } from '../__mocks__/yogaLogger';
 import { describe, expect, test, vi } from 'vitest';
-import { OperationDefinitionNode } from 'graphql';
 
 describe('getBeforeSourceHookHandler', () => {
 	test('should return beforeSourceHook function', async () => {
@@ -55,7 +54,11 @@ describe('getBeforeSourceHookHandler', () => {
 				payload: {
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 				},
 				hookType: 'beforeSource',
 				sourceName: 'testSource',
@@ -88,7 +91,11 @@ describe('getBeforeSourceHookHandler', () => {
 				payload: {
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 				},
 				hookType: 'beforeSource',
 				sourceName: 'testSource',
@@ -121,7 +128,11 @@ describe('getBeforeSourceHookHandler', () => {
 				payload: {
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 				},
 				hookType: 'beforeSource',
 				sourceName: 'testSource',
@@ -166,7 +177,11 @@ describe('getBeforeSourceHookHandler', () => {
 				payload: {
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 				},
 				hookType: 'beforeSource',
 				sourceName: 'testSource',
@@ -188,7 +203,11 @@ describe('getBeforeSourceHookHandler', () => {
 					payload: {
 						sourceName: 'testSource',
 						request: { method: 'GET' },
-						operation: {} as OperationDefinitionNode,
+						context: {
+							request: new Request('http://localhost'),
+							params: {},
+						},
+						document: {},
 					},
 					hookType: 'beforeSource',
 					sourceName: 'testSource',
@@ -209,7 +228,11 @@ describe('getBeforeSourceHookHandler', () => {
 					payload: {
 						sourceName: 'testSource',
 						request: { method: 'GET' },
-						operation: {} as OperationDefinitionNode,
+						context: {
+							request: new Request('http://localhost'),
+							params: {},
+						},
+						document: {},
 					},
 					hookType: 'beforeSource',
 					sourceName: 'testSource',
@@ -243,7 +266,11 @@ describe('getBeforeSourceHookHandler', () => {
 				payload: {
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 				},
 				hookType: 'beforeSource',
 				sourceName: 'testSource',
@@ -280,7 +307,11 @@ describe('getBeforeSourceHookHandler', () => {
 			payload: {
 				sourceName: 'testSource',
 				request: { method: 'GET' },
-				operation: {} as OperationDefinitionNode,
+				context: {
+					request: new Request('http://localhost'),
+					params: {},
+				},
+				document: {},
 			},
 			hookType: 'beforeSource',
 			sourceName: 'testSource',
@@ -311,7 +342,11 @@ describe('getBeforeSourceHookHandler', () => {
 				payload: {
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 				},
 				hookType: 'beforeSource',
 				sourceName: 'testSource',
@@ -341,7 +376,11 @@ describe('getBeforeSourceHookHandler', () => {
 				payload: {
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 				},
 				hookType: 'beforeSource',
 				sourceName: 'testSource',
@@ -371,7 +410,11 @@ describe('getBeforeSourceHookHandler', () => {
 				payload: {
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 				},
 				hookType: 'beforeSource',
 				sourceName: 'testSource',
@@ -401,7 +444,11 @@ describe('getBeforeSourceHookHandler', () => {
 				payload: {
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 				},
 				hookType: 'beforeSource',
 				sourceName: 'testSource',
@@ -432,7 +479,11 @@ describe('getBeforeSourceHookHandler', () => {
 		const payload = {
 			sourceName: 'testSource',
 			request: { method: 'POST', body: 'test body' },
-			operation: { kind: 'OperationDefinition' } as OperationDefinitionNode,
+			context: {
+				request: new Request('http://localhost'),
+				params: {},
+			},
+			document: {},
 		};
 		await beforeSourceHookHandler({
 			payload,

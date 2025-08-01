@@ -11,7 +11,7 @@ governing permissions and limitations under the License.
 */
 
 import getAfterAllHookHandler, { AfterAllHookBuildConfig } from '../handleAfterAllHooks';
-import { PayloadContext, HookResponse, HookStatus, GraphQLResult } from '../types';
+import { HookResponse, HookStatus, GraphQLResult, HookFunctionPayloadContext } from '../types';
 import { mockLogger } from '../__mocks__/yogaLogger';
 import { describe, expect, test, vi, beforeEach } from 'vitest';
 
@@ -30,7 +30,7 @@ vi.mock('../utils', async () => {
 
 describe('getAfterAllHookHandler (afterAll)', () => {
 	const basePayload = {
-		context: {} as unknown as PayloadContext,
+		context: {} as unknown as HookFunctionPayloadContext,
 		document: {},
 		result: { data: { test: 'value' } },
 	};
@@ -348,7 +348,7 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
 		const payloadWithNullResult = {
-			context: {} as unknown as PayloadContext,
+			context: {} as unknown as HookFunctionPayloadContext,
 			document: {},
 			result: null as unknown as GraphQLResult,
 		};
@@ -371,7 +371,7 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
 		const payloadWithUndefinedResult = {
-			context: {} as unknown as PayloadContext,
+			context: {} as unknown as HookFunctionPayloadContext,
 			document: {},
 			result: undefined,
 		};
