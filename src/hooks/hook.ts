@@ -1,11 +1,25 @@
+/*
+Copyright 2022 Adobe. All rights reserved.
+This file is licensed to you under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License. You may obtain a copy
+of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under
+the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+OF ANY KIND, either express or implied. See the License for the specific language
+governing permissions and limitations under the License.
+*/
+
 import type { YogaLogger } from 'graphql-yoga';
 import { GraphQLError } from 'graphql/error';
-import { type HookConfig, HookFunctionPayload, MemoizedFns, PluginHooksErrorCode } from '../types';
 import {
-	HookLifecycleEvent,
-	HookLifecycleInvokeHooksParams,
-	HookLifecycleRegistry,
-} from './hookLifecycleRegistry';
+	type HookConfig,
+	HookFunctionPayload,
+	MemoizedFns,
+	PLUGIN_HOOKS_ERROR_CODES,
+	PluginHooksErrorCode,
+} from '../types';
+import { HookLifecycleEvent, HookLifecycleInvokeHooksParams } from './hookLifecycleRegistry';
 
 export enum HookType {
 	BEFORE_ALL = 'beforeAll',
@@ -83,11 +97,30 @@ abstract class Hook {
 	}
 
 	/**
+	 * Gets a generic error for when a hook fails to execute.
+	 * @static
+	 */
+	static getGenericError() {
+		return new GraphQLError(`Error while invoking hook`, {
+			extensions: {
+				code: PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS,
+			},
+		});
+	}
+
+	/**
 	 * Gets the type of hook.
 	 * @protected
 	 */
 	protected getType() {
 		return this.type;
+	}
+
+	/**
+	 * Gets the lifecycle event associated with the hook.
+	 */
+	public getLifecycleEvent() {
+		return this.lifecycleEvent;
 	}
 
 	/**
@@ -109,35 +142,30 @@ abstract class Hook {
 	/**
 	 * Gets the black box hook function wrapped with the necessary configuration, context, and error handling.
 	 */
-	public abstract getWrappedHookFunction(): WrappedHookFunction;
+	public abstract wrapHookFunction(): WrappedHookFunction;
 
 	/**
-	 * Adds the hook to the hook lifecycle registry.
-	 * @param hookLifecycleRegistry The registry to which the hook should be added.
-	 */
-	public addToHookLifecycleRegistry(hookLifecycleRegistry: HookLifecycleRegistry): void {
-		hookLifecycleRegistry.addHookToRegistry(HookLifecycleEvent.ON_EXECUTE, this);
-	}
-
-	/**
-	 * Invoke the wrapped hook function with parameters associated with the lifecycle event
+	 * Invoke the wrapped hook function with parameters associated with the lifecycle event. Hooks should be self-contained
+	 * and throw hook specific errors if they fail.
 	 * @param params Hook lifecycle parameters that include the context and payload
+	 * @throws {GraphQLError} Throws a GraphQLError with the hook's error code if an error occurs during execution
 	 */
 	public async invoke(params: HookLifecycleInvokeHooksParams) {
 		this.getBuildConfig().logger.info('Invoking hook %s', this.getType());
 		if (!this.wrappedHookFunction) {
 			this.getBuildConfig().logger.info('Memoize hook %s', this.getType());
-			this.wrappedHookFunction = this.getWrappedHookFunction();
+			this.wrappedHookFunction = this.wrapHookFunction();
 		}
 		return await this.wrappedHookFunction(params);
 	}
 
 	/**
-	 * Handles errors thrown during hook execution with consistent error processing
+	 * Handles errors thrown during hook execution with consistent error processing. Hooks could throw an error, reject a
+	 * promise, or return an object with an error message. This method normalizes all of these cases into a standardized
+	 * GraphQLError with an appropriate error code for the hook.
 	 * @param err The unknown error that was caught
-	 * @throws {Error} Always throws a standardized Error
 	 */
-	public normalizeError(err: unknown): GraphQLError {
+	public getNormalizedHookError(err: unknown): GraphQLError {
 		let message = `Error while invoking ${this.getType()} hook`;
 
 		if (err instanceof Error) {

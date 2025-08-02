@@ -117,15 +117,19 @@ export type HookFunction = (
 	payload: HookFunctionPayload | SourceHookFunctionPayload,
 ) => Promise<HookResponse> | HookResponse;
 
+export interface HookResponseData {
+	headers?: {
+		[headerName: string]: string;
+	};
+	request?: RequestInit;
+	response?: Response;
+	result?: GraphQLResult;
+}
+
 export interface HookResponse {
 	status: HookStatus;
 	message: string;
-	data?: {
-		headers?: {
-			[headerName: string]: string;
-		};
-		result?: GraphQLResult;
-	};
+	data?: HookResponseData;
 }
 
 export enum HookStatus {
@@ -140,7 +144,12 @@ export { PLUGIN_HOOKS_ERROR_CODES, type PluginHooksErrorCode } from './errors';
  * Function to update the context with headers or other data.
  * @param data
  */
-export type UpdateContextFn = (data: { headers?: Record<string, string> }) => void;
+export type UpdateContextFn = (data?: HookResponseData) => void;
+
+/**
+ * Function to set the response of a fetch operation.
+ */
+export type SetResponseFn = (response: Response) => void;
 
 /**
  * Function to set the result of the GraphQL execution and stop further execution.

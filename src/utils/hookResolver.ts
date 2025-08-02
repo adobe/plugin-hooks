@@ -60,11 +60,8 @@ export interface SourceHookExecConfig {
 	sourceName: string;
 }
 
-async function getHookFunction(
-	config: HookResolverConfig | SourceHookResolverConfig,
-	hookConfig: HookConfig,
-) {
-	const { baseDir, logger } = config;
+export async function getHookFunction(config: HookResolverConfig) {
+	const { baseDir, logger, hookConfig } = config;
 	let hookFunction: HookFunction | undefined;
 
 	// Resolve function based on configuration type
@@ -95,87 +92,6 @@ async function getHookFunction(
 			logger,
 			blocking: hookConfig.blocking,
 		});
-	}
-
-	return hookFunction;
-}
-
-/**
- * Resolves and memoizes hook functions with consistent logic for both beforeAll and afterAll hooks
- *
- * @param config - Configuration object containing hook config, type, and dependencies
- * @returns Promise<HookFunction | undefined> - The resolved hook function or undefined if none configured
- *
- * @example
- * ```typescript
- * const hookFn = await resolveHookFunction({
- *   hookConfig: beforeAllConfig,
- *   hookType: 'beforeAll',
- *   baseDir: '/path/to/base',
- *   logger: yogaLogger,
- *   memoizedFns: memoizedFunctions
- * });
- * ```
- */
-export async function resolveHookFunction(
-	config: HookResolverConfig,
-): Promise<HookFunction | undefined> {
-	const { hookConfig, hookType, memoizedFns } = config;
-
-	// Check if function is already memoized
-	const memoizedFn = memoizedFns[hookType] as HookFunction | undefined;
-	if (memoizedFn) {
-		return memoizedFn;
-	}
-
-	const hookFunction: HookFunction | undefined = await getHookFunction(config, hookConfig);
-
-	// Memoize the resolved function
-	if (hookFunction) {
-		// @ts-expect-error zzz
-		memoizedFns[hookType] = hookFunction;
-	}
-
-	return hookFunction;
-}
-
-/**
- * Resolves a single source hook function with memoization
- *
- * @param hookConfig - The hook configuration
- * @param index - The index of the hook in the array
- * @param config - Configuration object containing dependencies
- * @param sourceName - The name of the source for which the hook is being resolved
- * @returns Promise<HookFunction | undefined> - The resolved hook function or undefined
- */
-export async function resolveSourceHookFunction(
-	hookConfig: HookConfig,
-	index: number,
-	config: SourceHookResolverConfig,
-	sourceName: string,
-): Promise<HookFunction | undefined> {
-	const { hookType, memoizedFns } = config;
-
-	// Check if function is already memoized
-	if (
-		memoizedFns[hookType] &&
-		memoizedFns[hookType][sourceName] &&
-		memoizedFns[hookType][sourceName][index] !== null
-	) {
-		return memoizedFns[hookType][sourceName][index] as HookFunction;
-	}
-
-	const hookFunction: HookFunction | undefined = await getHookFunction(config, hookConfig);
-
-	// Memoize the resolved function
-	if (hookFunction) {
-		if (!memoizedFns[hookType]) {
-			memoizedFns[hookType] = {};
-		}
-		if (!memoizedFns[hookType][sourceName]) {
-			memoizedFns[hookType][sourceName] = [];
-		}
-		memoizedFns[hookType][sourceName][index] = hookFunction;
 	}
 
 	return hookFunction;

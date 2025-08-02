@@ -13,18 +13,17 @@ governing permissions and limitations under the License.
 import { MeshPlugin } from '@graphql-mesh/types';
 import { GraphQLError, GraphQLResolveInfo } from 'graphql';
 import type { Plugin, YogaInitialContext, YogaLogger } from 'graphql-yoga';
-import getAfterSourceHookHandler from './handleAfterSourceHooks';
-import getBeforeSourceHookHandler from './handleBeforeSourceHooks';
 import { AfterAllHook } from './hooks/afterAllHook';
+import { AfterSourceHook } from './hooks/afterSourceHook';
 import { BeforeAllHook } from './hooks/beforeAllHook';
+import { BeforeSourceHook } from './hooks/beforeSourceHook';
+import { Hook } from './hooks/hook';
 import { HookLifecycleEvent, HookLifecycleRegistry } from './hooks/hookLifecycleRegistry';
 import {
-	AfterSourceHookFunctionPayload,
-	BeforeSourceHookFunctionPayload,
 	GraphQLData,
 	HookConfig,
 	MemoizedFns,
-	PLUGIN_HOOKS_ERROR_CODES,
+	SetResponseFn,
 	SourceHookConfig,
 	StateApi,
 	UpdateContextFn,
@@ -72,21 +71,61 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 		const hookLifecycleRegistry = new HookLifecycleRegistry();
 
 		if (beforeAll) {
-			new BeforeAllHook({
-				config: beforeAll,
-				baseDir,
-				logger,
-				memoizedFns,
-			}).addToHookLifecycleRegistry(hookLifecycleRegistry);
+			hookLifecycleRegistry.addHookToRegistry(
+				new BeforeAllHook({
+					config: beforeAll,
+					baseDir,
+					logger,
+					memoizedFns,
+				}),
+			);
 		}
 
 		if (afterAll) {
-			new AfterAllHook({
-				config: afterAll,
-				baseDir,
-				logger,
-				memoizedFns,
-			}).addToHookLifecycleRegistry(hookLifecycleRegistry);
+			hookLifecycleRegistry.addHookToRegistry(
+				new AfterAllHook({
+					config: afterAll,
+					baseDir,
+					logger,
+					memoizedFns,
+				}),
+			);
+		}
+
+		if (beforeSource) {
+			Object.entries(beforeSource).forEach(([sourceName, hookConfigs]) => {
+				hookConfigs.forEach(beforeSourceConfig => {
+					hookLifecycleRegistry.addSourceHookToRegistry(
+						new BeforeSourceHook(
+							{
+								config: beforeSourceConfig,
+								baseDir,
+								logger,
+								memoizedFns,
+							},
+							sourceName,
+						),
+					);
+				});
+			});
+		}
+
+		if (afterSource) {
+			Object.entries(afterSource).forEach(([sourceName, hookConfigs]) => {
+				hookConfigs.forEach(beforeSourceConfig => {
+					hookLifecycleRegistry.addSourceHookToRegistry(
+						new AfterSourceHook(
+							{
+								config: beforeSourceConfig,
+								baseDir,
+								logger,
+								memoizedFns,
+							},
+							sourceName,
+						),
+					);
+				});
+			});
 		}
 
 		return {
@@ -117,7 +156,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				}
 
 				const updateContext: UpdateContextFn = data => {
-					const { headers: newHeaders } = data;
+					const { headers: newHeaders } = data || {};
 					if (newHeaders) {
 						const updatedHeaders = {
 							...headers,
@@ -133,7 +172,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				const state = ('state' in context ? context.state : {}) as StateApi;
 
 				/**
-				 * Execute Before All Hook
+				 * OnExecute lifecycle hooks
 				 */
 				try {
 					await hookLifecycleRegistry.invokeHooks({
@@ -157,67 +196,46 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 					logger.error('Error while invoking hook %o', err);
 					setResultAndStopExecution({
 						data: null,
-						errors: [
-							new GraphQLError(
-								(err instanceof Error && err.message) || `Error while invoking hook`,
-								{
-									extensions: {
-										code: PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS,
-									},
-								},
-							),
-						],
+						errors: [Hook.getGenericError()],
 					});
 				}
 
-				if (afterAll) {
-					return {
-						onExecuteDone: async ({
-							result,
-						}: {
-							result: { data?: GraphQLData; errors?: GraphQLError[] };
-						}) => {
-							try {
-								console.log('zzz');
-								console.log(JSON.stringify(result));
-								await hookLifecycleRegistry.invokeHooks({
-									event: HookLifecycleEvent.ON_EXECUTE_DONE,
-									payload: {
-										context: {
-											params,
-											request,
-											headers,
-											body,
-											secrets,
-											state,
-											logger,
-										},
-										document,
+				return {
+					onExecuteDone: async ({
+						result,
+					}: {
+						result: { data?: GraphQLData; errors?: GraphQLError[] };
+					}) => {
+						/**
+						 * OnExecuteDone lifecycle hooks
+						 */
+						try {
+							await hookLifecycleRegistry.invokeHooks({
+								event: HookLifecycleEvent.ON_EXECUTE_DONE,
+								payload: {
+									context: {
+										params,
+										request,
+										headers,
+										body,
+										secrets,
+										state,
+										logger,
 									},
+									document,
 									result,
-									setResultAndStopExecution,
-								});
-							} catch (err: unknown) {
-								logger.error('Error while invoking hook %o', err);
-								setResultAndStopExecution({
-									data: null,
-									errors: [
-										new GraphQLError(
-											(err instanceof Error && err.message) || `Error while invoking hook`,
-											{
-												extensions: {
-													code: PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS,
-												},
-											},
-										),
-									],
-								});
-							}
-						},
-					};
-				}
-
-				return {};
+								},
+								setResultAndStopExecution,
+							});
+						} catch (err: unknown) {
+							logger.error('Error while invoking hook %o', err);
+							setResultAndStopExecution({
+								data: null,
+								errors: [Hook.getGenericError()],
+							});
+						}
+					},
+				};
 			},
 			async onFetch({ info, options, context }) {
 				// Ignore situations where info is not defined (schema generation) or when not configured
@@ -236,88 +254,78 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				>;
 				const state = (context && 'state' in context ? context.state : {}) as StateApi;
 				const sourceName = (info as GraphQLResolveInfoWithSourceName).sourceName;
+
 				const beforeSourceHooks = config.beforeSource?.[sourceName] || [];
 				if (beforeSourceHooks) {
-					const beforeSourceHookHandler = getBeforeSourceHookHandler({
-						baseDir,
-						beforeSource: beforeSourceHooks,
-						logger,
-						memoizedFns,
+					beforeSourceHooks.map(beforeSource => {
+						new BeforeSourceHook(
+							{
+								config: beforeSource,
+								baseDir,
+								logger,
+								memoizedFns,
+							},
+							sourceName,
+						);
 					});
 
+					/**
+					 * OnFetch lifecycle hooks
+					 */
 					try {
-						const payload: BeforeSourceHookFunctionPayload = {
-							context: {
-								request: context.request,
-								params: context.params,
-								secrets: secrets!,
-								state: state!,
-								logger,
+						await hookLifecycleRegistry.invokeHooks({
+							event: HookLifecycleEvent.ON_FETCH,
+							payload: {
+								context: {
+									request: context.request,
+									params: context.params,
+									secrets: secrets!,
+									state: state!,
+									logger,
+								},
+								document: context.document,
+								request: options,
 							},
-							request: options,
-							document: context.document,
-							sourceName,
-						};
-
-						await beforeSourceHookHandler({
-							payload,
-							hookType: 'beforeSource',
 							sourceName,
 						});
 					} catch (err: unknown) {
-						throw new GraphQLError(
-							(err instanceof Error && err.message) || 'Error while executing beforeSource hook',
-							{
-								extensions: {
-									code: PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_BEFORE_SOURCE,
-								},
-							},
-						);
+						logger.error('Error while invoking hook %o', err);
+						// Individual hooks should throw specific errors if they fail
+						throw err;
 					}
 				}
 
+				/**
+				 * Execute After Source Hooks
+				 */
 				return async ({
 					response,
 					setResponse,
 				}: {
 					response: Response;
-					setResponse: (response: Response) => void;
+					setResponse: SetResponseFn;
 				}) => {
-					const afterSourceHooks = config.afterSource?.[sourceName] || [];
-					const afterSourceHookHandler = getAfterSourceHookHandler({
-						baseDir,
-						afterSource: afterSourceHooks,
-						logger,
-						memoizedFns,
-					});
 					try {
-						const payload: AfterSourceHookFunctionPayload = {
-							context: {
-								request: context.request,
-								params: context.params,
-								secrets: secrets!,
-								state: state!,
-								logger,
+						await hookLifecycleRegistry.invokeHooks({
+							event: HookLifecycleEvent.ON_FETCH_DONE,
+							payload: {
+								context: {
+									request: context.request,
+									params: context.params,
+									secrets: secrets!,
+									state: state!,
+									logger,
+								},
+								document: context.document,
+								response,
 							},
-							document: context.document,
 							sourceName,
-							response,
 							setResponse,
-						};
-						await afterSourceHookHandler({
-							payload,
-							hookType: 'afterSource',
-							sourceName,
 						});
 					} catch (err: unknown) {
-						throw new GraphQLError(
-							(err instanceof Error && err.message) || 'Error while executing afterSource hook',
-							{
-								extensions: {
-									code: PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_AFTER_SOURCE,
-								},
-							},
-						);
+						logger.error('Error while invoking hook %o', err);
+						// Individual hooks should throw specific errors if they fail
+						throw err;
 					}
 				};
 			},

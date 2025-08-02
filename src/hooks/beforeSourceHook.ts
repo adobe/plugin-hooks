@@ -13,32 +13,39 @@ governing permissions and limitations under the License.
 import { PLUGIN_HOOKS_ERROR_CODES } from '../errors';
 import { HookStatus } from '../types';
 import { getHookFunction } from '../utils/hookResolver';
-import { Hook, HookBuildConfig, HookType, WrappedHookFunction } from './hook';
+import { HookBuildConfig, HookType, WrappedHookFunction } from './hook';
 import {
 	HookLifecycleEvent,
 	HookLifecycleInvokeHooksParams,
-	HookLifecycleOnExecuteParams,
+	HookLifecycleOnFetchParams,
 } from './hookLifecycleRegistry';
+import { SourceHook } from './sourceHook';
 
-class BeforeAllHook extends Hook {
-	constructor(buildConfig: HookBuildConfig) {
+class BeforeSourceHook extends SourceHook {
+	constructor(buildConfig: HookBuildConfig, sourceName: string) {
 		super(
-			HookType.BEFORE_ALL,
-			HookLifecycleEvent.ON_EXECUTE,
-			PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_BEFORE_ALL,
+			HookType.BEFORE_SOURCE,
+			HookLifecycleEvent.ON_FETCH,
+			PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_BEFORE_SOURCE,
 			buildConfig,
+			sourceName,
 		);
 	}
 
 	public wrapHookFunction(): WrappedHookFunction {
 		return async (execConfig: HookLifecycleInvokeHooksParams) => {
-			const { memoizedFns, baseDir, logger, config } = this.getBuildConfig();
+			const buildConfig = this.getBuildConfig();
+			const { memoizedFns, baseDir, logger, config } = buildConfig;
 			const hookType = this.getType();
-			const { payload, updateContext, setResultAndStopExecution } =
-				execConfig as HookLifecycleOnExecuteParams;
+			const { payload, sourceName } = execConfig as HookLifecycleOnFetchParams;
+
+			// Ensure the hooks source name matches the executing source
+			if (this.getSourceName() !== sourceName) {
+				return;
+			}
 
 			// Resolve hook function using shared utility
-			const beforeAllFn = await getHookFunction({
+			const beforeSourceFn = await getHookFunction({
 				hookConfig: config,
 				hookType,
 				baseDir,
@@ -46,13 +53,13 @@ class BeforeAllHook extends Hook {
 				memoizedFns,
 			});
 
-			if (!beforeAllFn) {
+			if (!beforeSourceFn) {
 				return;
 			}
 
 			try {
 				// Invoke the hook function with the payload
-				const hooksResponse = await beforeAllFn(payload);
+				const hooksResponse = await beforeSourceFn(payload);
 
 				// Non-blocking hooks can return immediately
 				if (!config.blocking) {
@@ -64,18 +71,31 @@ class BeforeAllHook extends Hook {
 					throw this.getNormalizedHookError(hooksResponse);
 				}
 
-				if (hooksResponse.data) {
-					updateContext(hooksResponse.data);
+				// Update RequestInit with serialized data from hook
+				if (hooksResponse && hooksResponse.data?.request) {
+					const { body, headers, method } = hooksResponse.data.request;
+					if (body) {
+						payload.request.body = body;
+					}
+					if ('body' in hooksResponse.data.request && body === undefined) {
+						delete payload.request.body;
+					}
+					if (headers) {
+						payload.request.headers = {
+							...payload.request.headers,
+							...headers,
+						};
+					}
+					if (method) {
+						payload.request.method = method;
+					}
 				}
 			} catch (err: unknown) {
 				logger.error('Error while invoking %s hook %o', hookType, err);
-				setResultAndStopExecution({
-					data: null,
-					errors: [this.getNormalizedHookError(err)],
-				});
+				throw this.getNormalizedHookError(err);
 			}
 		};
 	}
 }
 
-export { BeforeAllHook };
+export { BeforeSourceHook };

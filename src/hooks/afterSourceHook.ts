@@ -13,31 +13,39 @@ governing permissions and limitations under the License.
 import { PLUGIN_HOOKS_ERROR_CODES } from '../errors';
 import { HookStatus } from '../types';
 import { getHookFunction } from '../utils/hookResolver';
-import { Hook, HookBuildConfig, HookType, WrappedHookFunction } from './hook';
+import { HookBuildConfig, HookType, WrappedHookFunction } from './hook';
 import {
 	HookLifecycleEvent,
 	HookLifecycleInvokeHooksParams,
-	HookLifecycleOnExecuteDoneParams,
+	HookLifecycleOnFetchDoneParams,
 } from './hookLifecycleRegistry';
+import { SourceHook } from './sourceHook';
 
-class AfterAllHook extends Hook {
-	constructor(buildConfig: HookBuildConfig) {
+class AfterSourceHook extends SourceHook {
+	constructor(buildConfig: HookBuildConfig, sourceName: string) {
 		super(
-			HookType.AFTER_ALL,
-			HookLifecycleEvent.ON_EXECUTE_DONE,
-			PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_AFTER_ALL,
+			HookType.AFTER_SOURCE,
+			HookLifecycleEvent.ON_FETCH_DONE,
+			PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_AFTER_SOURCE,
 			buildConfig,
+			sourceName,
 		);
 	}
 
 	public wrapHookFunction(): WrappedHookFunction {
 		return async (execConfig: HookLifecycleInvokeHooksParams) => {
-			const { memoizedFns, baseDir, logger, config } = this.getBuildConfig();
+			const buildConfig = this.getBuildConfig();
+			const { memoizedFns, baseDir, logger, config } = buildConfig;
 			const hookType = this.getType();
-			const { payload, setResultAndStopExecution } = execConfig as HookLifecycleOnExecuteDoneParams;
+			const { payload, sourceName, setResponse } = execConfig as HookLifecycleOnFetchDoneParams;
+
+			// Ensure the hooks source name matches the executing source
+			if (this.getSourceName() !== sourceName) {
+				return;
+			}
 
 			// Resolve hook function using shared utility
-			const afterAllFn = await getHookFunction({
+			const afterSourceFn = await getHookFunction({
 				hookConfig: config,
 				hookType,
 				baseDir,
@@ -45,13 +53,13 @@ class AfterAllHook extends Hook {
 				memoizedFns,
 			});
 
-			if (!afterAllFn) {
+			if (!afterSourceFn) {
 				return;
 			}
 
 			try {
 				// Invoke the hook function with the payload
-				const hookResponse = await afterAllFn(payload);
+				const hooksResponse = await afterSourceFn(payload);
 
 				// Non-blocking hooks can return immediately
 				if (!config.blocking) {
@@ -59,27 +67,30 @@ class AfterAllHook extends Hook {
 				}
 
 				// Blocking hooks should always return a successful response, otherwise consider this an error
-				if (hookResponse?.status?.toUpperCase() !== HookStatus.SUCCESS) {
-					throw this.getNormalizedHookError(hookResponse);
+				if (hooksResponse?.status?.toUpperCase() !== HookStatus.SUCCESS) {
+					throw this.getNormalizedHookError(hooksResponse);
 				}
 
-				if (hookResponse?.data?.result) {
-					setResultAndStopExecution({
-						data: hookResponse?.data?.result?.data || payload?.result?.data,
-						errors: hookResponse?.data?.result?.errors || payload?.result?.errors,
-					});
+				// Update Response with serialized data from hook
+				if (hooksResponse && hooksResponse.data?.response) {
+					const { body, headers, status, statusText } = hooksResponse.data.response;
+					setResponse(
+						new Response(body || payload.response.body, {
+							status: status || payload.response.status,
+							statusText: statusText || payload.response.statusText,
+							headers: {
+								...Object.fromEntries(payload.response.headers.entries()),
+								...headers,
+							},
+						}),
+					);
 				}
 			} catch (err: unknown) {
 				logger.error('Error while invoking %s hook %o', hookType, err);
-				if (config.blocking) {
-					setResultAndStopExecution({
-						data: null,
-						errors: [this.getNormalizedHookError(err)],
-					});
-				}
+				throw this.getNormalizedHookError(err);
 			}
 		};
 	}
 }
 
-export { AfterAllHook };
+export { AfterSourceHook };
