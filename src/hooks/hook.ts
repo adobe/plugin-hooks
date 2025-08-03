@@ -12,21 +12,8 @@ governing permissions and limitations under the License.
 
 import type { YogaLogger } from 'graphql-yoga';
 import { GraphQLError } from 'graphql/error';
-import {
-	type HookConfig,
-	HookFunctionPayload,
-	MemoizedFns,
-	PLUGIN_HOOKS_ERROR_CODES,
-	PluginHooksErrorCode,
-} from '../types';
-import { HookLifecycleEvent, HookLifecycleInvokeHooksParams } from './hookLifecycleRegistry';
-
-export enum HookType {
-	BEFORE_ALL = 'beforeAll',
-	BEFORE_SOURCE = 'beforeSource',
-	AFTER_SOURCE = 'afterSource',
-	AFTER_ALL = 'afterAll',
-}
+import { type HookConfig, PLUGIN_HOOKS_ERROR_CODES, PluginHooksErrorCode } from '../types';
+import { EnvelopLifecycleEvent, EnvelopLifecycleInvokeHooksParams } from '../envelop';
 
 /**
  * Configuration passed when building a hook.
@@ -35,24 +22,13 @@ export interface HookBuildConfig {
 	baseDir: string;
 	config: HookConfig;
 	logger: YogaLogger;
-	memoizedFns: MemoizedFns;
-}
-
-/**
- * Configuration passed when executing a hook.
- */
-export interface HookExecutionConfig {
-	/**
-	 * Payload passed to the hook function.
-	 */
-	payload: HookFunctionPayload;
 }
 
 /**
  * Wrapper around the black box hook function that includes the necessary configuration and context from the associated
  * lifecycle event.
  */
-export type WrappedHookFunction = (params: HookLifecycleInvokeHooksParams) => Promise<void>;
+export type WrappedHookFunction = (params: EnvelopLifecycleInvokeHooksParams) => Promise<void>;
 
 /**
  * Abstract class representing a hook in the system.
@@ -62,13 +38,13 @@ abstract class Hook {
 	 * The type of hook, e.g., beforeAll, beforeSource, afterSource, afterAll.
 	 * @private
 	 */
-	private readonly type: HookType;
+	private readonly type: string;
 
 	/**
 	 * The lifecycle event associated with the hook.
 	 * @private
 	 */
-	private readonly lifecycleEvent: HookLifecycleEvent;
+	private readonly lifecycleEvent: EnvelopLifecycleEvent;
 
 	/**
 	 * The error code used for error handling in the hook.
@@ -85,8 +61,8 @@ abstract class Hook {
 	private wrappedHookFunction: WrappedHookFunction | null = null;
 
 	protected constructor(
-		type: HookType,
-		lifecycleEvent: HookLifecycleEvent,
+		type: string,
+		lifecycleEvent: EnvelopLifecycleEvent,
 		errorCode: PluginHooksErrorCode,
 		hookConfig: HookBuildConfig,
 	) {
@@ -112,7 +88,7 @@ abstract class Hook {
 	 * Gets the type of hook.
 	 * @protected
 	 */
-	protected getType() {
+	public getType() {
 		return this.type;
 	}
 
@@ -150,10 +126,10 @@ abstract class Hook {
 	 * @param params Hook lifecycle parameters that include the context and payload
 	 * @throws {GraphQLError} Throws a GraphQLError with the hook's error code if an error occurs during execution
 	 */
-	public async invoke(params: HookLifecycleInvokeHooksParams) {
-		this.getBuildConfig().logger.info('Invoking hook %s', this.getType());
+	public async invoke(params: EnvelopLifecycleInvokeHooksParams) {
+		this.getBuildConfig().logger.info('Invoking hook "%s"', this.getType());
 		if (!this.wrappedHookFunction) {
-			this.getBuildConfig().logger.info('Memoize hook %s', this.getType());
+			this.getBuildConfig().logger.info('Memoize hook "%s"', this.getType());
 			this.wrappedHookFunction = this.wrapHookFunction();
 		}
 		return await this.wrappedHookFunction(params);
@@ -166,8 +142,9 @@ abstract class Hook {
 	 * @param err The unknown error that was caught
 	 */
 	public getNormalizedHookError(err: unknown): GraphQLError {
-		let message = `Error while invoking ${this.getType()} hook`;
+		let message = `Error while invoking "${this.getType()}" hook`;
 
+		// Extract the error message based on the type object
 		if (err instanceof Error) {
 			message = err.message;
 		} else if (err && typeof err === 'object' && 'message' in err) {

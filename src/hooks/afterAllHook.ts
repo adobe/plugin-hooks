@@ -12,37 +12,36 @@ governing permissions and limitations under the License.
 
 import { PLUGIN_HOOKS_ERROR_CODES } from '../errors';
 import { HookStatus } from '../types';
-import { getHookFunction } from '../utils/hookResolver';
-import { Hook, HookBuildConfig, HookType, WrappedHookFunction } from './hook';
+import { getExternalFunction } from '../external';
+import { Hook, HookBuildConfig, WrappedHookFunction } from './hook';
 import {
-	HookLifecycleEvent,
-	HookLifecycleInvokeHooksParams,
-	HookLifecycleOnExecuteDoneParams,
-} from './hookLifecycleRegistry';
+	EnvelopLifecycleEvent,
+	EnvelopLifecycleInvokeHooksParams,
+	EnvelopLifecycleOnExecuteDoneParams,
+} from '../envelop';
 
 class AfterAllHook extends Hook {
 	constructor(buildConfig: HookBuildConfig) {
 		super(
-			HookType.AFTER_ALL,
-			HookLifecycleEvent.ON_EXECUTE_DONE,
+			'afterAll',
+			EnvelopLifecycleEvent.ON_EXECUTE_DONE,
 			PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_AFTER_ALL,
 			buildConfig,
 		);
 	}
 
 	public wrapHookFunction(): WrappedHookFunction {
-		return async (execConfig: HookLifecycleInvokeHooksParams) => {
-			const { memoizedFns, baseDir, logger, config } = this.getBuildConfig();
+		return async (execConfig: EnvelopLifecycleInvokeHooksParams) => {
+			const { baseDir, logger, config } = this.getBuildConfig();
 			const hookType = this.getType();
-			const { payload, setResultAndStopExecution } = execConfig as HookLifecycleOnExecuteDoneParams;
+			const { payload, setResultAndStopExecution } =
+				execConfig as EnvelopLifecycleOnExecuteDoneParams;
 
 			// Resolve hook function using shared utility
-			const afterAllFn = await getHookFunction({
+			const afterAllFn = await getExternalFunction({
 				hookConfig: config,
-				hookType,
 				baseDir,
 				logger,
-				memoizedFns,
 			});
 
 			if (!afterAllFn) {

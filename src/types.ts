@@ -67,13 +67,6 @@ export interface HookConfig {
 	fn?: string;
 }
 
-export interface MemoizedFns {
-	beforeAll?: HookFunction;
-	beforeSource?: Record<string, (HookFunction | null)[]>;
-	afterSource?: Record<string, (HookFunction | null)[]>;
-	afterAll?: HookFunction;
-}
-
 export interface Module {
 	[key: string]: object | HookFunction | undefined;
 	default?: Module;

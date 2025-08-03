@@ -11,14 +11,7 @@ governing permissions and limitations under the License.
 */
 
 import type { YogaLogger } from 'graphql-yoga';
-import { HookType } from '../hooks/hook';
-import type {
-	AfterSourceHookFunctionPayload,
-	BeforeSourceHookFunctionPayload,
-	HookConfig,
-	HookFunction,
-	MemoizedFns,
-} from '../types';
+import type { HookConfig, HookFunction } from '../types';
 //@ts-expect-error The dynamic import is a workaround for cjs
 import importFn from '../dynamicImport';
 import {
@@ -27,40 +20,24 @@ import {
 	getWrappedLocalHookFunction,
 	getWrappedLocalModuleHookFunction,
 	getWrappedRemoteHookFunction,
-} from '../utils';
+} from './utils';
 
 /**
- * Configuration for hook function resolution
+ * Configuration for an external function.
  */
-export interface HookResolverConfig {
+export interface ExternalFunctionConfig {
 	hookConfig: HookConfig;
-	hookType: HookType;
 	baseDir: string;
 	logger: YogaLogger;
-	memoizedFns: MemoizedFns;
 }
 
 /**
- * Configuration for source hook resolution
+ * Get the external function based on its configuration. An external function can be a remote endpoint, a local module
+ * function, or a local function at runtime. External functions are a blackbox that must be wrapped to ensure
+ * validation of input/output and to handle uniform behavior across different types of functions.
+ * @param config External function configuration.
  */
-export interface SourceHookResolverConfig {
-	hookConfigs: HookConfig[];
-	hookType: 'beforeSource' | 'afterSource';
-	baseDir: string;
-	logger: YogaLogger;
-	memoizedFns: MemoizedFns;
-}
-
-/**
- * Configuration for source hook execution
- */
-export interface SourceHookExecConfig {
-	payload: BeforeSourceHookFunctionPayload | AfterSourceHookFunctionPayload;
-	hookType: 'beforeSource' | 'afterSource';
-	sourceName: string;
-}
-
-export async function getHookFunction(config: HookResolverConfig) {
+export async function getExternalFunction(config: ExternalFunctionConfig) {
 	const { baseDir, logger, hookConfig } = config;
 	let hookFunction: HookFunction | undefined;
 

@@ -11,8 +11,8 @@ governing permissions and limitations under the License.
 */
 
 import { PluginHooksErrorCode } from '../types';
-import { Hook, HookBuildConfig, HookType } from './hook';
-import { HookLifecycleEvent } from './hookLifecycleRegistry';
+import { Hook, HookBuildConfig } from './hook';
+import { EnvelopLifecycleEvent } from '../envelop';
 
 /**
  * Abstract class representing a source specific hook in the system.
@@ -25,8 +25,8 @@ abstract class SourceHook extends Hook {
 	private readonly sourceName: string;
 
 	protected constructor(
-		type: HookType,
-		lifecycleEvent: HookLifecycleEvent,
+		type: string,
+		lifecycleEvent: EnvelopLifecycleEvent,
 		errorCode: PluginHooksErrorCode,
 		hookConfig: HookBuildConfig,
 		sourceName: string,

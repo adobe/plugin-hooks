@@ -23,7 +23,7 @@ import {
 	HookResponse,
 	HookFunctionPayload,
 	SourceHookFunctionPayload,
-} from './types';
+} from '../types';
 
 export interface MetaConfig {
 	logger: YogaLogger;

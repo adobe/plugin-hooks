@@ -13,16 +13,12 @@ governing permissions and limitations under the License.
 import { MeshPlugin } from '@graphql-mesh/types';
 import { GraphQLError, GraphQLResolveInfo } from 'graphql';
 import type { Plugin, YogaInitialContext, YogaLogger } from 'graphql-yoga';
-import { AfterAllHook } from './hooks/afterAllHook';
-import { AfterSourceHook } from './hooks/afterSourceHook';
-import { BeforeAllHook } from './hooks/beforeAllHook';
-import { BeforeSourceHook } from './hooks/beforeSourceHook';
+import { AfterAllHook, AfterSourceHook, BeforeAllHook, BeforeSourceHook } from './hooks';
 import { Hook } from './hooks/hook';
-import { HookLifecycleEvent, HookLifecycleRegistry } from './hooks/hookLifecycleRegistry';
+import { EnvelopLifecycleEvent, EnvelopLifecycleRegistry } from './envelop';
 import {
 	GraphQLData,
 	HookConfig,
-	MemoizedFns,
 	SetResponseFn,
 	SourceHookConfig,
 	StateApi,
@@ -63,12 +59,8 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				onFetch: async () => {},
 			};
 		}
-		const memoizedFns: MemoizedFns = {
-			afterSource: {},
-			beforeSource: {},
-		};
 
-		const hookLifecycleRegistry = new HookLifecycleRegistry();
+		const hookLifecycleRegistry = new EnvelopLifecycleRegistry();
 
 		if (beforeAll) {
 			hookLifecycleRegistry.addHookToRegistry(
@@ -76,7 +68,6 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 					config: beforeAll,
 					baseDir,
 					logger,
-					memoizedFns,
 				}),
 			);
 		}
@@ -87,7 +78,6 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 					config: afterAll,
 					baseDir,
 					logger,
-					memoizedFns,
 				}),
 			);
 		}
@@ -95,13 +85,12 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 		if (beforeSource) {
 			Object.entries(beforeSource).forEach(([sourceName, hookConfigs]) => {
 				hookConfigs.forEach(beforeSourceConfig => {
-					hookLifecycleRegistry.addSourceHookToRegistry(
+					hookLifecycleRegistry.addHookToRegistry(
 						new BeforeSourceHook(
 							{
 								config: beforeSourceConfig,
 								baseDir,
 								logger,
-								memoizedFns,
 							},
 							sourceName,
 						),
@@ -113,13 +102,12 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 		if (afterSource) {
 			Object.entries(afterSource).forEach(([sourceName, hookConfigs]) => {
 				hookConfigs.forEach(beforeSourceConfig => {
-					hookLifecycleRegistry.addSourceHookToRegistry(
+					hookLifecycleRegistry.addHookToRegistry(
 						new AfterSourceHook(
 							{
 								config: beforeSourceConfig,
 								baseDir,
 								logger,
-								memoizedFns,
 							},
 							sourceName,
 						),
@@ -176,7 +164,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				 */
 				try {
 					await hookLifecycleRegistry.invokeHooks({
-						event: HookLifecycleEvent.ON_EXECUTE,
+						event: EnvelopLifecycleEvent.ON_EXECUTE,
 						payload: {
 							context: {
 								params,
@@ -211,7 +199,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						 */
 						try {
 							await hookLifecycleRegistry.invokeHooks({
-								event: HookLifecycleEvent.ON_EXECUTE_DONE,
+								event: EnvelopLifecycleEvent.ON_EXECUTE_DONE,
 								payload: {
 									context: {
 										params,
@@ -263,7 +251,6 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 								config: beforeSource,
 								baseDir,
 								logger,
-								memoizedFns,
 							},
 							sourceName,
 						);
@@ -274,7 +261,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 					 */
 					try {
 						await hookLifecycleRegistry.invokeHooks({
-							event: HookLifecycleEvent.ON_FETCH,
+							event: EnvelopLifecycleEvent.ON_FETCH,
 							payload: {
 								context: {
 									request: context.request,
@@ -307,7 +294,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				}) => {
 					try {
 						await hookLifecycleRegistry.invokeHooks({
-							event: HookLifecycleEvent.ON_FETCH_DONE,
+							event: EnvelopLifecycleEvent.ON_FETCH_DONE,
 							payload: {
 								context: {
 									request: context.request,

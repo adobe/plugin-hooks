@@ -12,20 +12,20 @@ governing permissions and limitations under the License.
 
 import { PLUGIN_HOOKS_ERROR_CODES } from '../errors';
 import { HookStatus } from '../types';
-import { getHookFunction } from '../utils/hookResolver';
-import { HookBuildConfig, HookType, WrappedHookFunction } from './hook';
+import { getExternalFunction } from '../external';
+import { HookBuildConfig, WrappedHookFunction } from './hook';
 import {
-	HookLifecycleEvent,
-	HookLifecycleInvokeHooksParams,
-	HookLifecycleOnFetchDoneParams,
-} from './hookLifecycleRegistry';
+	EnvelopLifecycleEvent,
+	EnvelopLifecycleInvokeHooksParams,
+	EnvelopLifecycleOnFetchDoneParams,
+} from '../envelop';
 import { SourceHook } from './sourceHook';
 
 class AfterSourceHook extends SourceHook {
 	constructor(buildConfig: HookBuildConfig, sourceName: string) {
 		super(
-			HookType.AFTER_SOURCE,
-			HookLifecycleEvent.ON_FETCH_DONE,
+			'afterSource',
+			EnvelopLifecycleEvent.ON_FETCH_DONE,
 			PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_AFTER_SOURCE,
 			buildConfig,
 			sourceName,
@@ -33,11 +33,11 @@ class AfterSourceHook extends SourceHook {
 	}
 
 	public wrapHookFunction(): WrappedHookFunction {
-		return async (execConfig: HookLifecycleInvokeHooksParams) => {
+		return async (execConfig: EnvelopLifecycleInvokeHooksParams) => {
 			const buildConfig = this.getBuildConfig();
-			const { memoizedFns, baseDir, logger, config } = buildConfig;
+			const { baseDir, logger, config } = buildConfig;
 			const hookType = this.getType();
-			const { payload, sourceName, setResponse } = execConfig as HookLifecycleOnFetchDoneParams;
+			const { payload, sourceName, setResponse } = execConfig as EnvelopLifecycleOnFetchDoneParams;
 
 			// Ensure the hooks source name matches the executing source
 			if (this.getSourceName() !== sourceName) {
@@ -45,12 +45,10 @@ class AfterSourceHook extends SourceHook {
 			}
 
 			// Resolve hook function using shared utility
-			const afterSourceFn = await getHookFunction({
+			const afterSourceFn = await getExternalFunction({
 				hookConfig: config,
-				hookType,
 				baseDir,
 				logger,
-				memoizedFns,
 			});
 
 			if (!afterSourceFn) {

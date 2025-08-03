@@ -12,38 +12,36 @@ governing permissions and limitations under the License.
 
 import { PLUGIN_HOOKS_ERROR_CODES } from '../errors';
 import { HookStatus } from '../types';
-import { getHookFunction } from '../utils/hookResolver';
-import { Hook, HookBuildConfig, HookType, WrappedHookFunction } from './hook';
+import { getExternalFunction } from '../external';
+import { Hook, HookBuildConfig, WrappedHookFunction } from './hook';
 import {
-	HookLifecycleEvent,
-	HookLifecycleInvokeHooksParams,
-	HookLifecycleOnExecuteParams,
-} from './hookLifecycleRegistry';
+	EnvelopLifecycleEvent,
+	EnvelopLifecycleInvokeHooksParams,
+	EnvelopLifecycleOnExecuteParams,
+} from '../envelop';
 
 class BeforeAllHook extends Hook {
 	constructor(buildConfig: HookBuildConfig) {
 		super(
-			HookType.BEFORE_ALL,
-			HookLifecycleEvent.ON_EXECUTE,
+			'beforeAll',
+			EnvelopLifecycleEvent.ON_EXECUTE,
 			PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_BEFORE_ALL,
 			buildConfig,
 		);
 	}
 
 	public wrapHookFunction(): WrappedHookFunction {
-		return async (execConfig: HookLifecycleInvokeHooksParams) => {
-			const { memoizedFns, baseDir, logger, config } = this.getBuildConfig();
+		return async (execConfig: EnvelopLifecycleInvokeHooksParams) => {
+			const { baseDir, logger, config } = this.getBuildConfig();
 			const hookType = this.getType();
 			const { payload, updateContext, setResultAndStopExecution } =
-				execConfig as HookLifecycleOnExecuteParams;
+				execConfig as EnvelopLifecycleOnExecuteParams;
 
 			// Resolve hook function using shared utility
-			const beforeAllFn = await getHookFunction({
+			const beforeAllFn = await getExternalFunction({
 				hookConfig: config,
-				hookType,
 				baseDir,
 				logger,
-				memoizedFns,
 			});
 
 			if (!beforeAllFn) {

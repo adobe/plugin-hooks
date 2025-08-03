@@ -12,20 +12,20 @@ governing permissions and limitations under the License.
 
 import { PLUGIN_HOOKS_ERROR_CODES } from '../errors';
 import { HookStatus } from '../types';
-import { getHookFunction } from '../utils/hookResolver';
-import { HookBuildConfig, HookType, WrappedHookFunction } from './hook';
+import { getExternalFunction } from '../external';
+import { HookBuildConfig, WrappedHookFunction } from './hook';
 import {
-	HookLifecycleEvent,
-	HookLifecycleInvokeHooksParams,
-	HookLifecycleOnFetchParams,
-} from './hookLifecycleRegistry';
+	EnvelopLifecycleEvent,
+	EnvelopLifecycleInvokeHooksParams,
+	EnvelopLifecycleOnFetchParams,
+} from '../envelop';
 import { SourceHook } from './sourceHook';
 
 class BeforeSourceHook extends SourceHook {
 	constructor(buildConfig: HookBuildConfig, sourceName: string) {
 		super(
-			HookType.BEFORE_SOURCE,
-			HookLifecycleEvent.ON_FETCH,
+			'beforeSource',
+			EnvelopLifecycleEvent.ON_FETCH,
 			PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_BEFORE_SOURCE,
 			buildConfig,
 			sourceName,
@@ -33,11 +33,11 @@ class BeforeSourceHook extends SourceHook {
 	}
 
 	public wrapHookFunction(): WrappedHookFunction {
-		return async (execConfig: HookLifecycleInvokeHooksParams) => {
+		return async (execConfig: EnvelopLifecycleInvokeHooksParams) => {
 			const buildConfig = this.getBuildConfig();
-			const { memoizedFns, baseDir, logger, config } = buildConfig;
+			const { baseDir, logger, config } = buildConfig;
 			const hookType = this.getType();
-			const { payload, sourceName } = execConfig as HookLifecycleOnFetchParams;
+			const { payload, sourceName } = execConfig as EnvelopLifecycleOnFetchParams;
 
 			// Ensure the hooks source name matches the executing source
 			if (this.getSourceName() !== sourceName) {
@@ -45,12 +45,10 @@ class BeforeSourceHook extends SourceHook {
 			}
 
 			// Resolve hook function using shared utility
-			const beforeSourceFn = await getHookFunction({
+			const beforeSourceFn = await getExternalFunction({
 				hookConfig: config,
-				hookType,
 				baseDir,
 				logger,
-				memoizedFns,
 			});
 
 			if (!beforeSourceFn) {
