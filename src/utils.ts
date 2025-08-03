@@ -98,7 +98,23 @@ export async function getWrappedRemoteHookFunction(
 	url: string,
 	metaConfig: MetaConfig,
 ): Promise<HookFunction> {
-	return async (data: HookFunctionPayload | SourceHookFunctionPayload): Promise<HookResponse> => {
+	return async (
+		payload: HookFunctionPayload | SourceHookFunctionPayload,
+	): Promise<HookResponse> => {
+		const { context, document } = payload;
+		const { sourceName } = payload as SourceHookFunctionPayload;
+		// Extract properties that are relevant and serializable. We do not send secrets over the wire
+		const { request, params, body, headers } = context || {};
+		const data = {
+			context: {
+				request,
+				params,
+				body,
+				headers,
+			},
+			document,
+			sourceName,
+		};
 		const { logger, blocking } = metaConfig;
 		try {
 			logger.debug('Invoking remote fn %s', url);

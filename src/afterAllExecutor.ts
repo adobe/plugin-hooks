@@ -14,14 +14,13 @@ import { GraphQLError } from 'graphql/error';
 import getAfterAllHookHandler from './handleAfterAllHooks';
 import type {
 	HookConfig,
-	MemoizedFns,
 	GraphQLData,
 	GraphQLError as GraphQLErrorType,
 	GraphQLResult,
 	StateApi,
 } from './types';
 import type { YogaLogger, GraphQLParams } from 'graphql-yoga';
-import { PLUGIN_HOOKS_ERROR_CODES } from './errorCodes';
+import { PLUGIN_HOOKS_ERROR_CODES } from './errors';
 
 export interface AfterAllExecutionContext {
 	params: GraphQLParams;
@@ -37,6 +36,11 @@ export interface AfterAllExecutionContext {
 	afterAll: HookConfig;
 }
 
+/**
+ * Executes the `beforeAll` hook handler with the provided context.
+ * @param afterAllHookHandler Before all hook handler function.
+ * @param context Context.
+ */
 export async function executeAfterAllHook(
 	afterAllHookHandler: ReturnType<typeof getAfterAllHookHandler>,
 	context: AfterAllExecutionContext,
@@ -95,18 +99,4 @@ export async function executeAfterAllHook(
 			});
 		}
 	}
-}
-
-export function createAfterAllHookHandler(
-	afterAll: HookConfig,
-	baseDir: string,
-	logger: YogaLogger,
-	memoizedFns: MemoizedFns,
-) {
-	return getAfterAllHookHandler({
-		memoizedFns,
-		baseDir,
-		logger,
-		afterAll,
-	});
 }

@@ -11,7 +11,7 @@ governing permissions and limitations under the License.
 */
 
 import getBeforeAllHookHandler, { BeforeAllHookBuildConfig } from '../handleBeforeAllHooks';
-import { PayloadContext, HookResponse, HookStatus } from '../types';
+import { HookFunctionPayloadContext, HookResponse, HookStatus } from '../types';
 import { mockLogger } from '../__mocks__/yogaLogger';
 import { describe, expect, test, vi } from 'vitest';
 
@@ -48,7 +48,7 @@ describe('getBeforeAllHookHandler', () => {
 			const beforeAllHookHandler = getBeforeAllHookHandler(mockConfig);
 			expect(mockHook).toHaveBeenCalledTimes(0);
 			await beforeAllHookHandler({
-				payload: { context: {} as unknown as PayloadContext, document: {} },
+				payload: { context: {} as unknown as HookFunctionPayloadContext, document: {} },
 				updateContext: () => {},
 			});
 			expect(mockHook).toHaveBeenCalledOnce();
@@ -73,7 +73,7 @@ describe('getBeforeAllHookHandler', () => {
 			const beforeAllHookHandler = getBeforeAllHookHandler(mockConfig);
 			expect(mockHook).toHaveBeenCalledTimes(0);
 			await beforeAllHookHandler({
-				payload: { context: {} as unknown as PayloadContext, document: {} },
+				payload: { context: {} as unknown as HookFunctionPayloadContext, document: {} },
 				updateContext: () => {},
 			});
 			expect(mockHook).toHaveBeenCalledOnce();
@@ -98,7 +98,7 @@ describe('getBeforeAllHookHandler', () => {
 			const beforeAllHookHandler = getBeforeAllHookHandler(mockConfig);
 			expect(mockHook).toHaveBeenCalledTimes(0);
 			await beforeAllHookHandler({
-				payload: { context: {} as unknown as PayloadContext, document: {} },
+				payload: { context: {} as unknown as HookFunctionPayloadContext, document: {} },
 				updateContext: () => {},
 			});
 			expect(mockHook).toHaveBeenCalledOnce();
@@ -125,7 +125,7 @@ describe('getBeforeAllHookHandler', () => {
 		const beforeAllHookHandler = getBeforeAllHookHandler(mockConfig);
 		await expect(
 			beforeAllHookHandler({
-				payload: { context: {} as unknown as PayloadContext, document: {} },
+				payload: { context: {} as unknown as HookFunctionPayloadContext, document: {} },
 				updateContext: () => {},
 			}),
 		).rejects.toThrowError(mockResponse.message);
@@ -154,7 +154,7 @@ describe('getBeforeAllHookHandler', () => {
 		expect(mockHook).toHaveBeenCalledTimes(0);
 		expect(mockMemoizedHook).toHaveBeenCalledTimes(0);
 		await beforeAllHookHandler({
-			payload: { context: {} as unknown as PayloadContext, document: {} },
+			payload: { context: {} as unknown as HookFunctionPayloadContext, document: {} },
 			updateContext: () => {},
 		});
 		expect(mockHook).toHaveBeenCalledTimes(0);

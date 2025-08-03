@@ -12,9 +12,9 @@ governing permissions and limitations under the License.
 
 import { GraphQLError } from 'graphql/error';
 import getBeforeAllHookHandler, { UpdateContextFn } from './handleBeforeAllHooks';
-import type { HookConfig, MemoizedFns, GraphQLResult, StateApi } from './types';
+import type { GraphQLResult, StateApi } from './types';
 import type { YogaLogger, GraphQLParams } from 'graphql-yoga';
-import { PLUGIN_HOOKS_ERROR_CODES } from './errorCodes';
+import { PLUGIN_HOOKS_ERROR_CODES } from './errors';
 
 export interface BeforeAllExecutionContext {
 	params: GraphQLParams;
@@ -29,6 +29,11 @@ export interface BeforeAllExecutionContext {
 	setResultAndStopExecution: (result: GraphQLResult) => void;
 }
 
+/**
+ * Executes the `beforeAll` hook handler with the provided context.
+ * @param beforeAllHookHandler Before all hook handler function.
+ * @param context Context.
+ */
 export async function executeBeforeAllHook(
 	beforeAllHookHandler: ReturnType<typeof getBeforeAllHookHandler>,
 	context: BeforeAllExecutionContext,
@@ -65,18 +70,4 @@ export async function executeBeforeAllHook(
 		});
 		throw err; // Re-throw to indicate execution should stop
 	}
-}
-
-export function createBeforeAllHookHandler(
-	beforeAll: HookConfig,
-	baseDir: string,
-	logger: YogaLogger,
-	memoizedFns: MemoizedFns,
-) {
-	return getBeforeAllHookHandler({
-		memoizedFns,
-		baseDir,
-		logger,
-		beforeAll,
-	});
 }

@@ -1,5 +1,18 @@
+/*
+Copyright 2022 Adobe. All rights reserved.
+This file is licensed to you under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License. You may obtain a copy
+of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software distributed under
+the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
+OF ANY KIND, either express or implied. See the License for the specific language
+governing permissions and limitations under the License.
+*/
+
 import type { YogaLogger } from 'graphql-yoga';
 import { HookFunction, HookStatus, MemoizedFns, HookConfig } from './types';
+import { handleHookExecutionError } from './errors';
 import type { SourceHookExecConfig } from './utils/hookResolver';
 import { resolveSourceHookFunction } from './utils/hookResolver';
 
@@ -10,6 +23,10 @@ export interface AfterSourceHookBuildConfig {
 	memoizedFns: MemoizedFns;
 }
 
+/**
+ * Gets the handler function for the `afterSource` hook. Wraps the blackbox hook function with common logic/error handling.
+ * @param fnBuildConfig Build configuration.
+ */
 const getAfterSourceHookHandler = (fnBuildConfig: AfterSourceHookBuildConfig) => {
 	return async (fnExecConfig: SourceHookExecConfig) => {
 		const { baseDir, logger, afterSource, memoizedFns } = fnBuildConfig;
@@ -54,14 +71,7 @@ const getAfterSourceHookHandler = (fnBuildConfig: AfterSourceHookBuildConfig) =>
 						}
 					}
 				} catch (err: unknown) {
-					logger.error('Error while invoking afterSource hook %o', err);
-					if (err instanceof Error) {
-						throw new Error(err.message);
-					}
-					if (err && typeof err === 'object' && 'message' in err) {
-						throw new Error((err as { message?: string }).message);
-					}
-					throw new Error('Error while invoking afterSource hook');
+					handleHookExecutionError(err, logger, 'afterSource');
 				}
 			}
 		}

@@ -12,7 +12,7 @@ governing permissions and limitations under the License.
 
 import type { YogaLogger } from 'graphql-yoga';
 import { HookConfig, HookFunctionPayload, HookStatus, MemoizedFns, HookResponse } from './types';
-import { handleHookExecutionError, handleHookHandlerError } from './utils/errorHandler';
+import { handleHookExecutionError, handleHookHandlerError } from './errors';
 import { resolveHookFunction } from './utils/hookResolver';
 
 export interface AfterAllHookBuildConfig {
@@ -26,6 +26,10 @@ export interface AfterAllHookExecConfig {
 	payload: HookFunctionPayload;
 }
 
+/**
+ * Gets the handler function for the `afterAll` hook. Wraps the blackbox hook function with common logic/error handling.
+ * @param fnBuildConfig Build configuration.
+ */
 const getAfterAllHookHandler =
 	(fnBuildConfig: AfterAllHookBuildConfig) =>
 	async (fnExecConfig: AfterAllHookExecConfig): Promise<HookResponse | undefined> => {

@@ -14,7 +14,6 @@ import getAfterSourceHookHandler, { AfterSourceHookBuildConfig } from '../handle
 import { HookResponse, HookStatus } from '../types';
 import { mockLogger } from '../__mocks__/yogaLogger';
 import { describe, expect, test, vi } from 'vitest';
-import { OperationDefinitionNode } from 'graphql';
 
 describe('getAfterSourceHookHandler', () => {
 	test('should return afterSourceHook function', async () => {
@@ -51,9 +50,13 @@ describe('getAfterSourceHookHandler', () => {
 			expect(mockHook).toHaveBeenCalledTimes(0);
 			await afterSourceHookHandler({
 				payload: {
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
 					response: new Response(),
 					setResponse: vi.fn(),
 				},
@@ -86,9 +89,13 @@ describe('getAfterSourceHookHandler', () => {
 			expect(mockHook).toHaveBeenCalledTimes(0);
 			await afterSourceHookHandler({
 				payload: {
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
 					response: new Response(),
 					setResponse: vi.fn(),
 				},
@@ -121,9 +128,15 @@ describe('getAfterSourceHookHandler', () => {
 			expect(mockHook).toHaveBeenCalledTimes(0);
 			await afterSourceHookHandler({
 				payload: {
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
+					response: new Response(),
+					setResponse: vi.fn(),
 				},
 				hookType: 'afterSource',
 				sourceName: 'testSource',
@@ -166,9 +179,15 @@ describe('getAfterSourceHookHandler', () => {
 			expect(mockHook2).toHaveBeenCalledTimes(0);
 			await afterSourceHookHandler({
 				payload: {
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
+					response: new Response(),
+					setResponse: vi.fn(),
 				},
 				hookType: 'afterSource',
 				sourceName: 'testSource',
@@ -188,9 +207,15 @@ describe('getAfterSourceHookHandler', () => {
 			await expect(
 				afterSourceHookHandler({
 					payload: {
+						context: {
+							request: new Request('http://localhost'),
+							params: {},
+						},
+						document: {},
 						sourceName: 'testSource',
 						request: { method: 'GET' },
-						operation: {} as OperationDefinitionNode,
+						response: new Response(),
+						setResponse: vi.fn(),
 					},
 					hookType: 'afterSource',
 					sourceName: 'testSource',
@@ -209,9 +234,15 @@ describe('getAfterSourceHookHandler', () => {
 			await expect(
 				afterSourceHookHandler({
 					payload: {
+						context: {
+							request: new Request('http://localhost'),
+							params: {},
+						},
+						document: {},
 						sourceName: 'testSource',
 						request: { method: 'GET' },
-						operation: {} as OperationDefinitionNode,
+						response: new Response(),
+						setResponse: vi.fn(),
 					},
 					hookType: 'afterSource',
 					sourceName: 'testSource',
@@ -243,9 +274,15 @@ describe('getAfterSourceHookHandler', () => {
 		await expect(
 			afterSourceHookHandler({
 				payload: {
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
+					response: new Response(),
+					setResponse: vi.fn(),
 				},
 				hookType: 'afterSource',
 				sourceName: 'testSource',
@@ -280,9 +317,13 @@ describe('getAfterSourceHookHandler', () => {
 		expect(mockMemoizedHook).toHaveBeenCalledTimes(0);
 		await afterSourceHookHandler({
 			payload: {
+				context: {
+					request: new Request('http://localhost'),
+					params: {},
+				},
+				document: {},
 				sourceName: 'testSource',
 				request: { method: 'GET' },
-				operation: {} as OperationDefinitionNode,
 				response: new Response(),
 				setResponse: vi.fn(),
 			},
@@ -313,9 +354,13 @@ describe('getAfterSourceHookHandler', () => {
 		await expect(
 			afterSourceHookHandler({
 				payload: {
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
 					response: new Response(),
 					setResponse: vi.fn(),
 				},
@@ -345,9 +390,13 @@ describe('getAfterSourceHookHandler', () => {
 		await expect(
 			afterSourceHookHandler({
 				payload: {
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
 					response: new Response(),
 					setResponse: vi.fn(),
 				},
@@ -377,9 +426,13 @@ describe('getAfterSourceHookHandler', () => {
 		await expect(
 			afterSourceHookHandler({
 				payload: {
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
 					response: new Response(),
 					setResponse: vi.fn(),
 				},
@@ -409,9 +462,13 @@ describe('getAfterSourceHookHandler', () => {
 		await expect(
 			afterSourceHookHandler({
 				payload: {
+					context: {
+						request: new Request('http://localhost'),
+						params: {},
+					},
+					document: {},
 					sourceName: 'testSource',
 					request: { method: 'GET' },
-					operation: {} as OperationDefinitionNode,
 					response: new Response(),
 					setResponse: vi.fn(),
 				},
@@ -442,9 +499,15 @@ describe('getAfterSourceHookHandler', () => {
 		};
 		const afterSourceHookHandler = getAfterSourceHookHandler(mockConfig);
 		const payload = {
+			context: {
+				request: new Request('http://localhost'),
+				params: {},
+			},
+			document: {},
 			sourceName: 'testSource',
 			request: { method: 'POST', body: 'test body' },
-			operation: { kind: 'OperationDefinition' } as OperationDefinitionNode,
+			response: new Response(),
+			setResponse: vi.fn(),
 		};
 		await afterSourceHookHandler({
 			payload,
