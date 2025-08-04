@@ -106,7 +106,6 @@ export type BeforeSourceHookFunctionPayload = SourceHookFunctionPayload & {
 
 export type AfterSourceHookFunctionPayload = SourceHookFunctionPayload & {
 	response?: Response;
-	setResponse?: (response: Response) => void;
 };
 
 export type AfterAllHookFunctionPayload = HookFunctionPayload & {
@@ -125,6 +124,19 @@ export interface HookResponse {
 			[headerName: string]: string;
 		};
 		result?: GraphQLResult;
+		request?: {
+			method?: string;
+			headers?: Record<string, string>;
+			body?: string | FormData | Blob | ArrayBufferView | ArrayBuffer | URLSearchParams | null;
+			[key: string]: unknown;
+		};
+		response?: {
+			body?: string | FormData | Blob | ArrayBufferView | ArrayBuffer | URLSearchParams | null;
+			status?: number;
+			statusText?: string;
+			headers?: Record<string, string>;
+			[key: string]: unknown;
+		};
 	};
 }
 

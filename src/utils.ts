@@ -32,6 +32,25 @@ export interface MetaConfig {
 	importFn: ImportFn;
 }
 
+export interface SerializableHookData {
+	context: {
+		request?: Request;
+		params?: unknown;
+		body?: unknown;
+		headers?: Record<string, string>;
+	};
+	document?: unknown;
+	sourceName?: string;
+	response?: {
+		body: string;
+		status: number;
+		statusText: string;
+		headers: Record<string, string>;
+	};
+	result?: unknown;
+	request?: RequestInit;
+}
+
 /**
  * Execute a promise with a timeout. Defaults to 30 seconds.
  * @param promise Promise.
@@ -105,7 +124,9 @@ export async function getWrappedRemoteHookFunction(
 		const { sourceName } = payload as SourceHookFunctionPayload;
 		// Extract properties that are relevant and serializable. We do not send secrets over the wire
 		const { request, params, body, headers } = context || {};
-		const data = {
+
+		// Prepare serializable data
+		const data: SerializableHookData = {
 			context: {
 				request,
 				params,
@@ -115,6 +136,29 @@ export async function getWrappedRemoteHookFunction(
 			document,
 			sourceName,
 		};
+
+		// Serialize response object for afterSource hooks
+		if ('response' in payload && payload.response) {
+			const response = payload.response as Response;
+			// Clone the response to avoid consuming the body stream
+			const clonedResponse = response.clone();
+			data.response = {
+				body: await clonedResponse.text(),
+				status: response.status,
+				statusText: response.statusText,
+				headers: Object.fromEntries(response.headers.entries()),
+			};
+		}
+
+		// Serialize result object for afterAll hooks
+		if ('result' in payload && payload.result) {
+			data.result = payload.result;
+		}
+
+		// Serialize request object for beforeSource hooks
+		if ('request' in payload && payload.request) {
+			data.request = payload.request;
+		}
 		const { logger, blocking } = metaConfig;
 		try {
 			logger.debug('Invoking remote fn %s', url);
@@ -126,20 +170,29 @@ export async function getWrappedRemoteHookFunction(
 				},
 			};
 			return new Promise<HookResponse>(async (resolve, reject: (reason?: HookResponse) => void) => {
-				const response$ = fetch(url, requestOptions);
-				if (blocking) {
-					const response = await response$;
-					const rawBody = await response.text();
-					const body = parseResponseBody(rawBody, response.ok);
-					if (body.status.toUpperCase() === HookStatus.SUCCESS) {
-						resolve(body);
+				try {
+					const response$ = fetch(url, requestOptions);
+					if (blocking) {
+						const response = await response$;
+						const rawBody = await response.text();
+
+						const body = parseResponseBody(rawBody, response.ok);
+
+						if (body.status.toUpperCase() === HookStatus.SUCCESS) {
+							resolve(body);
+						} else {
+							reject(body);
+						}
 					} else {
-						reject(body);
+						resolve({
+							status: HookStatus.SUCCESS,
+							message: 'Remote function invoked successfully',
+						});
 					}
-				} else {
-					resolve({
-						status: HookStatus.SUCCESS,
-						message: 'Remote function invoked successfully',
+				} catch (error: unknown) {
+					reject({
+						status: HookStatus.ERROR,
+						message: (error instanceof Error && error.message) || 'Remote hook fetch failed',
 					});
 				}
 			});

@@ -238,6 +238,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						memoizedFns,
 					});
 					try {
+						// Hook will receive serialized response data and return modifications. Do not pass setResponse to hooks
 						const payload: AfterSourceHookFunctionPayload = {
 							context: {
 								request: context.request,
@@ -249,13 +250,19 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 							document: context.document,
 							sourceName,
 							response,
-							setResponse,
 						};
-						await afterSourceHookHandler({
+
+						// Execute hook and get back modified response (if any)
+						const modifiedResponse = await afterSourceHookHandler({
 							payload,
 							hookType: 'afterSource',
 							sourceName,
 						});
+
+						// Wrapping function handles setting the response
+						if (modifiedResponse) {
+							setResponse(modifiedResponse);
+						}
 					} catch (err: unknown) {
 						throw new GraphQLError(
 							(err instanceof Error && err.message) || 'Error while executing afterSource hook',

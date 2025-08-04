@@ -11,7 +11,13 @@ governing permissions and limitations under the License.
 */
 
 import type { YogaLogger } from 'graphql-yoga';
-import { HookFunction, HookStatus, MemoizedFns, HookConfig } from './types';
+import {
+	HookFunction,
+	HookStatus,
+	MemoizedFns,
+	HookConfig,
+	AfterSourceHookFunctionPayload,
+} from './types';
 import { handleHookExecutionError } from './errors';
 import type { SourceHookExecConfig } from './utils/hookResolver';
 import { resolveSourceHookFunction } from './utils/hookResolver';
@@ -28,11 +34,12 @@ export interface AfterSourceHookBuildConfig {
  * @param fnBuildConfig Build configuration.
  */
 const getAfterSourceHookHandler = (fnBuildConfig: AfterSourceHookBuildConfig) => {
-	return async (fnExecConfig: SourceHookExecConfig) => {
+	return async (fnExecConfig: SourceHookExecConfig): Promise<Response | undefined> => {
 		const { baseDir, logger, afterSource, memoizedFns } = fnBuildConfig;
 		const { payload, sourceName } = fnExecConfig;
 
 		const afterSourceHooks = afterSource || [];
+		let modifiedResponse: Response | undefined = undefined;
 
 		// Initialize memoized functions array if not exists
 		if (!memoizedFns.afterSource) {
@@ -65,9 +72,39 @@ const getAfterSourceHookHandler = (fnBuildConfig: AfterSourceHookBuildConfig) =>
 			if (hookFn) {
 				try {
 					const hooksResponse = await hookFn(payload);
+					if (!hooksResponse) {
+						continue;
+					}
 					if (hookConfig.blocking) {
 						if (hooksResponse.status.toUpperCase() === HookStatus.ERROR) {
 							throw new Error(hooksResponse.message);
+						}
+						// Handle response modification from hook data
+						if (hooksResponse.data?.response) {
+							const modifiedResponseData = hooksResponse.data.response;
+							const afterSourcePayload = payload as AfterSourceHookFunctionPayload;
+
+							// Get original body if hook didn't provide one
+							let bodyToUse = modifiedResponseData.body;
+							if (!bodyToUse && afterSourcePayload.response) {
+								// Clone original response to read its body without consuming the original
+								const originalResponseClone = afterSourcePayload.response.clone();
+								bodyToUse = await originalResponseClone.text();
+							}
+
+							// Fallback to error message only if no original body exists
+							if (!bodyToUse) {
+								bodyToUse = '{"errors":[{"message":"Hook did not return response body"}]}';
+							}
+
+							modifiedResponse = new Response(bodyToUse, {
+								status: modifiedResponseData.status || afterSourcePayload.response?.status || 200,
+								statusText:
+									modifiedResponseData.statusText ||
+									afterSourcePayload.response?.statusText ||
+									'OK',
+								headers: modifiedResponseData.headers || {},
+							});
 						}
 					}
 				} catch (err: unknown) {
@@ -75,6 +112,9 @@ const getAfterSourceHookHandler = (fnBuildConfig: AfterSourceHookBuildConfig) =>
 				}
 			}
 		}
+
+		// Return modified response for the wrapping function to apply
+		return modifiedResponse;
 	};
 };
 
