@@ -145,5 +145,10 @@ export enum HookStatus {
 	ERROR = 'ERROR',
 }
 
+/**
+ * Type for the updateRequest callback function
+ */
+export type UpdateRequestFn = (modifications: RequestInit) => void;
+
 // Export error codes for uniform error handling
 export { PLUGIN_HOOKS_ERROR_CODES, type PluginHooksErrorCode } from './errors';

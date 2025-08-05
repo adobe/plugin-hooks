@@ -17,6 +17,7 @@ import type {
 	HookConfig,
 	HookFunction,
 	MemoizedFns,
+	UpdateRequestFn,
 } from '../types';
 //@ts-expect-error The dynamic import is a workaround for cjs
 import importFn from '../dynamicImport';
@@ -57,7 +58,7 @@ export interface SourceHookExecConfig {
 	payload: BeforeSourceHookFunctionPayload | AfterSourceHookFunctionPayload;
 	hookType: 'beforeSource' | 'afterSource';
 	sourceName: string;
-	updateRequest?: (modifications: RequestInit) => void; // Optional callback for beforeSource
+	updateRequest?: UpdateRequestFn; // Optional callback for beforeSource
 }
 
 async function getHookFunction(

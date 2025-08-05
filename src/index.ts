@@ -25,6 +25,7 @@ import {
 	AfterSourceHookFunctionPayload,
 	BeforeSourceHookFunctionPayload,
 	PLUGIN_HOOKS_ERROR_CODES,
+	UpdateRequestFn,
 } from './types';
 import getBeforeSourceHookHandler from './handleBeforeSourceHooks';
 import type { YogaLogger, Plugin, YogaInitialContext } from 'graphql-yoga';
@@ -207,27 +208,19 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						};
 
 						// Provide callback to update request
-						const updateRequest = (modifications: RequestInit) => {
+						const updateRequest: UpdateRequestFn = (modifications: RequestInit) => {
 							const { headers: newHeaders, ...otherModifications } = modifications;
-
-							// Handle header merging properly
+							// Handle header merging
 							if (newHeaders) {
 								const originalHeaders = options.headers || {};
-								let mergedHeaders: Record<string, string> = {};
-
-								// Handle different header formats
 								if (originalHeaders instanceof Headers) {
-									originalHeaders.forEach((value, key) => {
-										mergedHeaders[key] = value;
-									});
-								} else if (originalHeaders && typeof originalHeaders === 'object') {
-									mergedHeaders = { ...(originalHeaders as Record<string, string>) };
+									const headersObj = Object.fromEntries(originalHeaders.entries());
+									options.headers = { ...headersObj, ...newHeaders };
+								} else {
+									options.headers = { ...originalHeaders, ...newHeaders };
 								}
-								// Merge new headers
-								Object.assign(mergedHeaders, newHeaders);
-								options.headers = mergedHeaders;
 							}
-							// Apply other modifications (including body with modified query)
+							// Apply other modifications
 							Object.assign(options, otherModifications);
 						};
 
