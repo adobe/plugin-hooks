@@ -23,6 +23,7 @@ export type GraphQLData = ExecutionResult['data'];
 export type GraphQLResult = {
 	data?: GraphQLData;
 	errors?: GraphQLError[];
+	extensions?: Record<string, unknown>;
 };
 
 /**
@@ -79,6 +80,31 @@ export interface Module {
 	default?: Module;
 }
 
+/**
+ * Configuration required when building/memoizing the handler wrapping the black box hook function.
+ */
+export interface HookBuildConfig {
+	baseDir: string;
+	logger: YogaLogger;
+	memoizedFns: MemoizedFns;
+}
+
+/**
+ * Configuration required when executing the hook handler.
+ */
+export interface HookExecConfig {
+	payload: HookFunctionPayload;
+}
+
+/**
+ * Configuration required when executing the source hook handler.
+ */
+export interface SourceHookExecConfig extends HookExecConfig {
+	sourceName: string;
+	hookType: string;
+	payload: SourceHookFunctionPayload;
+}
+
 export interface HookFunctionPayloadContext {
 	request: Request;
 	params: GraphQLParams;
@@ -106,7 +132,6 @@ export type BeforeSourceHookFunctionPayload = SourceHookFunctionPayload & {
 
 export type AfterSourceHookFunctionPayload = SourceHookFunctionPayload & {
 	response?: Response;
-	setResponse?: (response: Response) => void;
 };
 
 export type AfterAllHookFunctionPayload = HookFunctionPayload & {
@@ -120,10 +145,44 @@ export type HookFunction = (
 export interface HookResponse {
 	status: HookStatus;
 	message: string;
+}
+
+export interface BeforeAllHookResponse extends HookResponse {
 	data?: {
 		headers?: {
 			[headerName: string]: string;
 		};
+	};
+}
+
+export interface BeforeSourceHookResponse extends HookResponse {
+	data?: {
+		request?:
+			| RequestInit
+			| {
+					body?: string | ReadableStream<Uint8Array>;
+					headers?: Record<string, string>;
+					method?: string;
+					url?: string;
+			  };
+	};
+}
+
+export interface AfterSourceHookResponse extends HookResponse {
+	data?: {
+		response?:
+			| Response
+			| {
+					body?: string | ReadableStream<Uint8Array>;
+					headers?: Record<string, string>;
+					status?: number;
+					statusText?: string;
+			  };
+	};
+}
+
+export interface AfterAllHookResponse extends HookResponse {
+	data?: {
 		result?: GraphQLResult;
 	};
 }
@@ -132,6 +191,16 @@ export enum HookStatus {
 	SUCCESS = 'SUCCESS',
 	ERROR = 'ERROR',
 }
+
+/**
+ * Updates the context with new headers.
+ */
+export type UpdateContextFn = (data: { headers?: Record<string, string> }) => void;
+
+/**
+ * Sets GraphQL result and stops further execution.
+ */
+export type SetResultAndStopExecutionFn = (result: ExecutionResult) => void;
 
 // Export error codes for uniform error handling
 export { PLUGIN_HOOKS_ERROR_CODES, type PluginHooksErrorCode } from './errors';

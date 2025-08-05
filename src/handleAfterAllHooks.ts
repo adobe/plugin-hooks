@@ -10,20 +10,31 @@ OF ANY KIND, either express or implied. See the License for the specific languag
 governing permissions and limitations under the License.
 */
 
-import type { YogaLogger } from 'graphql-yoga';
-import { HookConfig, HookFunctionPayload, HookStatus, MemoizedFns, HookResponse } from './types';
+import { ExecutionResult } from 'graphql';
+import {
+	HookConfig,
+	HookStatus,
+	AfterAllHookResponse,
+	AfterAllHookFunctionPayload,
+	SetResultAndStopExecutionFn,
+	HookBuildConfig,
+	HookExecConfig,
+} from './types';
 import { handleHookExecutionError, handleHookHandlerError } from './errors';
 import { resolveHookFunction } from './utils/hookResolver';
 
-export interface AfterAllHookBuildConfig {
-	baseDir: string;
+/**
+ * Configuration required when building/memoizing the handler wrapping the black box hook function.
+ */
+export interface AfterAllHookBuildConfig extends HookBuildConfig {
 	afterAll: HookConfig;
-	logger: YogaLogger;
-	memoizedFns: MemoizedFns;
 }
 
-export interface AfterAllHookExecConfig {
-	payload: HookFunctionPayload;
+/**
+ * Configuration required when executing the hook handler.
+ */
+export interface AfterAllHookExecConfig extends HookExecConfig {
+	setResultAndStopExecution: SetResultAndStopExecutionFn;
 }
 
 /**
@@ -32,10 +43,16 @@ export interface AfterAllHookExecConfig {
  */
 const getAfterAllHookHandler =
 	(fnBuildConfig: AfterAllHookBuildConfig) =>
-	async (fnExecConfig: AfterAllHookExecConfig): Promise<HookResponse | undefined> => {
+	async (fnExecConfig: AfterAllHookExecConfig): Promise<void> => {
 		try {
 			const { memoizedFns, baseDir, logger, afterAll } = fnBuildConfig;
-			const { payload } = fnExecConfig;
+			const {
+				setResultAndStopExecution,
+				payload,
+			}: {
+				setResultAndStopExecution: SetResultAndStopExecutionFn;
+				payload: AfterAllHookFunctionPayload;
+			} = fnExecConfig;
 
 			// Resolve hook function using shared utility
 			const afterAllFn = await resolveHookFunction({
@@ -48,11 +65,21 @@ const getAfterAllHookHandler =
 
 			if (afterAllFn) {
 				try {
-					const hooksResponse = await afterAllFn(payload);
-					if (afterAll.blocking && hooksResponse.status.toUpperCase() !== HookStatus.SUCCESS) {
-						throw new Error(hooksResponse.message);
+					const hookResponse: AfterAllHookResponse = await afterAllFn(payload);
+					if (afterAll.blocking && hookResponse.status.toUpperCase() !== HookStatus.SUCCESS) {
+						throw new Error(hookResponse.message);
 					}
-					return hooksResponse;
+
+					// Apply the modified result if hook returned one in data.result format
+					const originalResult = payload.result || {};
+					const newResult: ExecutionResult = Object.fromEntries(
+						Object.entries({
+							data: hookResponse?.data?.result?.data || originalResult.data,
+							errors: hookResponse?.data?.result?.errors || originalResult.errors,
+							extensions: hookResponse?.data?.result?.extensions || originalResult.extensions,
+						}).filter(([, value]) => value !== undefined),
+					);
+					setResultAndStopExecution(newResult);
 				} catch (err: unknown) {
 					handleHookExecutionError(err, logger, 'afterAll');
 				}

@@ -10,8 +10,15 @@ OF ANY KIND, either express or implied. See the License for the specific languag
 governing permissions and limitations under the License.
 */
 
+import { mockSetResultAndStopExecution } from '../__mocks__/setResultAndStopExecution';
 import getAfterAllHookHandler, { AfterAllHookBuildConfig } from '../handleAfterAllHooks';
-import { HookResponse, HookStatus, GraphQLResult, HookFunctionPayloadContext } from '../types';
+import {
+	HookResponse,
+	HookStatus,
+	GraphQLResult,
+	HookFunctionPayloadContext,
+	AfterAllHookResponse,
+} from '../types';
 import { mockLogger } from '../__mocks__/yogaLogger';
 import { describe, expect, test, vi, beforeEach } from 'vitest';
 
@@ -60,9 +67,13 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
-		const result = await handler({ payload: basePayload });
-		expect(result).toEqual(mockResponse);
+		await handler({
+			payload: basePayload,
+			setResultAndStopExecution: mockSetResultAndStopExecution,
+		});
 		expect(mockHook).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledWith(basePayload.result);
 	});
 
 	test('throws if blocking and status is ERROR', async () => {
@@ -78,7 +89,9 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
-		await expect(handler({ payload: basePayload })).rejects.toThrow('fail');
+		await expect(
+			handler({ payload: basePayload, setResultAndStopExecution: mockSetResultAndStopExecution }),
+		).rejects.toThrow('fail');
 	});
 
 	test('does not throw if non-blocking and status is ERROR', async () => {
@@ -94,15 +107,19 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			afterAll: { blocking: false, module: { mockHook }, fn: 'mockHook' },
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
-		const result = await handler({ payload: basePayload });
-		expect(result).toEqual(mockResponse);
+		await handler({
+			payload: basePayload,
+			setResultAndStopExecution: mockSetResultAndStopExecution,
+		});
 		expect(mockHook).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledWith(basePayload.result);
 	});
 
 	test('returns modified result if present in response', async () => {
 		vi.mocked(utils.isModuleFn).mockReturnValue(true);
-		const modifiedResult = { data: { foo: 'bar' }, errors: [] };
-		const mockResponse: HookResponse = {
+		const modifiedResult = { data: { foo: 'bar' }, errors: [], extensions: {} };
+		const mockResponse: AfterAllHookResponse = {
 			status: HookStatus.SUCCESS,
 			message: 'modified',
 			data: { result: modifiedResult },
@@ -117,31 +134,13 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
-		const result = await handler({ payload: basePayload });
-		expect(result).toEqual(mockResponse);
+		await handler({
+			payload: basePayload,
+			setResultAndStopExecution: mockSetResultAndStopExecution,
+		});
 		expect(mockHook).toHaveBeenCalledOnce();
-	});
-
-	test('handles headers in response data', async () => {
-		vi.mocked(utils.isModuleFn).mockReturnValue(true);
-		const mockResponse: HookResponse = {
-			status: HookStatus.SUCCESS,
-			message: 'headers',
-			data: { headers: { 'x-test': 'abc' } },
-		};
-		const mockHook = vi.fn().mockResolvedValue(mockResponse);
-		vi.mocked(utils.getWrappedLocalModuleHookFunction).mockResolvedValue(mockHook);
-		vi.mocked(utils.getWrappedLocalHookFunction).mockResolvedValue(mockHook);
-		const mockConfig: AfterAllHookBuildConfig = {
-			memoizedFns: {},
-			baseDir: '',
-			logger: mockLogger,
-			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
-		};
-		const handler = getAfterAllHookHandler(mockConfig);
-		const result = await handler({ payload: basePayload });
-		expect(result).toEqual(mockResponse);
-		expect(mockHook).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledWith(modifiedResult);
 	});
 
 	test('throws if hook throws (blocking)', async () => {
@@ -158,7 +157,9 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
-		await expect(handler({ payload: basePayload })).rejects.toThrow('fail!');
+		await expect(
+			handler({ payload: basePayload, setResultAndStopExecution: mockSetResultAndStopExecution }),
+		).rejects.toThrow('fail!');
 	});
 
 	test('throws error if no hook is defined', async () => {
@@ -174,9 +175,9 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			afterAll: { blocking: true },
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
-		await expect(handler({ payload: basePayload })).rejects.toThrow(
-			'Unable to invoke local function undefined',
-		);
+		await expect(
+			handler({ payload: basePayload, setResultAndStopExecution: mockSetResultAndStopExecution }),
+		).rejects.toThrow('Unable to invoke local function undefined');
 	});
 
 	test('uses memoized function if present', async () => {
@@ -190,9 +191,13 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			afterAll: { blocking: true },
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
-		const result = await handler({ payload: basePayload });
-		expect(result).toEqual(mockResponse);
+		await handler({
+			payload: basePayload,
+			setResultAndStopExecution: mockSetResultAndStopExecution,
+		});
 		expect(memoized).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledWith(basePayload.result);
 	});
 
 	test('handles invalid response (missing status) for blocking', async () => {
@@ -207,7 +212,9 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
-		await expect(handler({ payload: basePayload })).rejects.toThrow();
+		await expect(
+			handler({ payload: basePayload, setResultAndStopExecution: mockSetResultAndStopExecution }),
+		).rejects.toThrow();
 	});
 
 	test('handles remote hook (success)', async () => {
@@ -223,9 +230,13 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			afterAll: { blocking: true, composer: 'https://remote' },
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
-		const result = await handler({ payload: basePayload });
-		expect(result).toEqual({ status: HookStatus.SUCCESS, message: 'remote ok' });
+		await handler({
+			payload: basePayload,
+			setResultAndStopExecution: mockSetResultAndStopExecution,
+		});
 		expect(mockRemoteHook).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledWith(basePayload.result);
 	});
 
 	test('handles remote hook (error, blocking)', async () => {
@@ -241,7 +252,12 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			afterAll: { blocking: true, composer: 'https://remote' },
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
-		await expect(handler({ payload: basePayload })).rejects.toThrow('remote fail');
+		await expect(
+			handler({
+				payload: basePayload,
+				setResultAndStopExecution: mockSetResultAndStopExecution,
+			}),
+		).rejects.toThrow('remote fail');
 	});
 
 	test('handles remote hook (error, non-blocking)', async () => {
@@ -257,9 +273,13 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			afterAll: { blocking: false, composer: 'https://remote' },
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
-		const result = await handler({ payload: basePayload });
-		expect(result).toEqual({ status: HookStatus.ERROR, message: 'remote fail' });
+		await handler({
+			payload: basePayload,
+			setResultAndStopExecution: mockSetResultAndStopExecution,
+		});
 		expect(mockRemoteHook).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledWith(basePayload.result);
 	});
 
 	test('handles case-insensitive status comparison', async () => {
@@ -275,9 +295,13 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
-		const result = await handler({ payload: basePayload });
-		expect(result).toEqual(mockResponse);
+		await handler({
+			payload: basePayload,
+			setResultAndStopExecution: mockSetResultAndStopExecution,
+		});
 		expect(mockHook).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledWith(basePayload.result);
 	});
 
 	test('handles error with non-Error object', async () => {
@@ -294,7 +318,9 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
-		await expect(handler({ payload: basePayload })).rejects.toThrow('custom error object');
+		await expect(
+			handler({ payload: basePayload, setResultAndStopExecution: mockSetResultAndStopExecution }),
+		).rejects.toThrow('custom error object');
 	});
 
 	test('handles error without message property', async () => {
@@ -311,9 +337,9 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			afterAll: { blocking: true, module: { mockHook }, fn: 'mockHook' },
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
-		await expect(handler({ payload: basePayload })).rejects.toThrow(
-			'Error while invoking afterAll hook',
-		);
+		await expect(
+			handler({ payload: basePayload, setResultAndStopExecution: mockSetResultAndStopExecution }),
+		).rejects.toThrow('Error while invoking afterAll hook');
 	});
 
 	test('handles local function with composer path', async () => {
@@ -329,9 +355,13 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			afterAll: { blocking: true, composer: './local-hook.js' },
 		};
 		const handler = getAfterAllHookHandler(mockConfig);
-		const result = await handler({ payload: basePayload });
-		expect(result).toEqual(mockResponse);
+		await handler({
+			payload: basePayload,
+			setResultAndStopExecution: mockSetResultAndStopExecution,
+		});
 		expect(mockHook).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledWith(basePayload.result);
 	});
 
 	test('handles payload with null result', async () => {
@@ -352,9 +382,13 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			document: {},
 			result: null as unknown as GraphQLResult,
 		};
-		const result = await handler({ payload: payloadWithNullResult });
-		expect(result).toEqual(mockResponse);
+		await handler({
+			payload: payloadWithNullResult,
+			setResultAndStopExecution: mockSetResultAndStopExecution,
+		});
 		expect(mockHook).toHaveBeenCalledWith(payloadWithNullResult);
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledWith({});
 	});
 
 	test('handles payload with undefined result', async () => {
@@ -375,8 +409,12 @@ describe('getAfterAllHookHandler (afterAll)', () => {
 			document: {},
 			result: undefined,
 		};
-		const result = await handler({ payload: payloadWithUndefinedResult });
-		expect(result).toEqual(mockResponse);
-		expect(mockHook).toHaveBeenCalledWith(payloadWithUndefinedResult);
+		await handler({
+			payload: payloadWithUndefinedResult,
+			setResultAndStopExecution: mockSetResultAndStopExecution,
+		});
+		expect(mockHook).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledOnce();
+		expect(mockSetResultAndStopExecution).toHaveBeenCalledWith({});
 	});
 });

@@ -137,7 +137,7 @@ describe('hooksPlugin', () => {
 		expect(mockHook).toHaveBeenCalledTimes(0);
 		const response = await testFetch(yogaServer, mockQuery);
 		expect(mockHook).toHaveBeenCalledTimes(1);
-		expect(response.data).toBeNull();
+		expect(response.data).toBeUndefined();
 		expect(response.errors).not.toBeUndefined();
 		const errors = response.errors!;
 		expect(errors.length).toBe(1);

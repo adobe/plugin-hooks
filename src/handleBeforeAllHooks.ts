@@ -10,24 +10,30 @@ OF ANY KIND, either express or implied. See the License for the specific languag
 governing permissions and limitations under the License.
 */
 
-import type { YogaLogger } from 'graphql-yoga';
-import { HookConfig, HookFunctionPayload, HookStatus, MemoizedFns } from './types';
+import {
+	BeforeAllHookResponse,
+	HookBuildConfig,
+	HookConfig,
+	HookExecConfig,
+	HookStatus,
+	UpdateContextFn,
+} from './types';
 import { handleHookExecutionError, handleHookHandlerError } from './errors';
 import { resolveHookFunction } from './utils/hookResolver';
 
-export interface BeforeAllHookBuildConfig {
-	baseDir: string;
+/**
+ * Configuration required when building/memoizing the handler wrapping the black box hook function.
+ */
+export interface BeforeAllHookBuildConfig extends HookBuildConfig {
 	beforeAll: HookConfig;
-	logger: YogaLogger;
-	memoizedFns: MemoizedFns;
 }
 
-export interface BeforeAllHookExecConfig {
-	payload: HookFunctionPayload;
+/**
+ * Configuration required when executing the hook handler.
+ */
+export interface BeforeAllHookExecConfig extends HookExecConfig {
 	updateContext: UpdateContextFn;
 }
-
-export type UpdateContextFn = (data: { headers?: Record<string, string> }) => void;
 
 /**
  * Gets the handler function for the `beforeAll` hook. Wraps the blackbox hook function with common logic/error handling.
@@ -51,7 +57,7 @@ const getBeforeAllHookHandler =
 
 			if (beforeAllFn) {
 				try {
-					const hooksResponse = await beforeAllFn(payload);
+					const hooksResponse: BeforeAllHookResponse = await beforeAllFn(payload);
 					if (beforeAll.blocking) {
 						if (hooksResponse.status.toUpperCase() === HookStatus.SUCCESS) {
 							if (hooksResponse.data) {

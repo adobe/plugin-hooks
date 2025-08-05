@@ -10,17 +10,30 @@ OF ANY KIND, either express or implied. See the License for the specific languag
 governing permissions and limitations under the License.
 */
 
-import type { YogaLogger } from 'graphql-yoga';
-import { HookFunction, HookStatus, MemoizedFns, HookConfig } from './types';
+import {
+	HookFunction,
+	HookStatus,
+	HookConfig,
+	BeforeSourceHookFunctionPayload,
+	BeforeSourceHookResponse,
+	HookBuildConfig,
+	SourceHookExecConfig,
+} from './types';
 import { handleHookExecutionError } from './errors';
-import type { SourceHookExecConfig } from './utils/hookResolver';
 import { resolveSourceHookFunction } from './utils/hookResolver';
 
-export interface BeforeSourceHookBuildConfig {
-	baseDir: string;
+/**
+ * Configuration required when building/memoizing the handler wrapping the black box hook function.
+ */
+export interface BeforeSourceHookBuildConfig extends HookBuildConfig {
 	beforeSource?: HookConfig[];
-	logger: YogaLogger;
-	memoizedFns: MemoizedFns;
+}
+
+/**
+ * Configuration required when executing the hook handler.
+ */
+export interface BeforeSourceHookExecConfig extends SourceHookExecConfig {
+	payload: BeforeSourceHookFunctionPayload;
 }
 
 /**
@@ -28,9 +41,15 @@ export interface BeforeSourceHookBuildConfig {
  * @param fnBuildConfig Build configuration.
  */
 const getBeforeSourceHookHandler = (fnBuildConfig: BeforeSourceHookBuildConfig) => {
-	return async (fnExecConfig: SourceHookExecConfig) => {
+	return async (fnExecConfig: BeforeSourceHookExecConfig): Promise<void> => {
 		const { baseDir, logger, beforeSource, memoizedFns } = fnBuildConfig;
-		const { payload, sourceName } = fnExecConfig;
+		const {
+			sourceName,
+			payload,
+		}: {
+			sourceName: string;
+			payload: BeforeSourceHookFunctionPayload;
+		} = fnExecConfig;
 
 		const beforeSourceHooks = beforeSource || [];
 
@@ -64,10 +83,32 @@ const getBeforeSourceHookHandler = (fnBuildConfig: BeforeSourceHookBuildConfig) 
 
 			if (hookFn) {
 				try {
-					const hooksResponse = await hookFn(payload);
+					const hooksResponse: BeforeSourceHookResponse = await hookFn(payload);
+					if (!hooksResponse) {
+						continue;
+					}
 					if (hookConfig.blocking) {
 						if (hooksResponse.status.toUpperCase() === HookStatus.ERROR) {
 							throw new Error(hooksResponse.message);
+						}
+
+						// Handle request modification from hook data using callback pattern (like beforeAll)
+						const originalRequest = payload.request;
+						const hookResponseRequest = hooksResponse.data?.request;
+						if (hookResponseRequest) {
+							const { headers: newHeaders, ...otherModifications } = hookResponseRequest;
+							// Handle header merging
+							if (newHeaders) {
+								const originalHeaders = originalRequest.headers || {};
+								if (originalHeaders instanceof Headers) {
+									const headersObj = Object.fromEntries(originalHeaders.entries());
+									originalRequest.headers = { ...headersObj, ...newHeaders };
+								} else {
+									originalRequest.headers = { ...originalHeaders, ...newHeaders };
+								}
+							}
+							// Apply other modifications
+							Object.assign(originalRequest, otherModifications);
 						}
 					}
 				} catch (err: unknown) {

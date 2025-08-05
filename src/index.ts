@@ -12,19 +12,20 @@ governing permissions and limitations under the License.
 
 import { GraphQLError } from 'graphql';
 import getAfterAllHookHandler from './handleAfterAllHooks';
-import getBeforeAllHookHandler, { UpdateContextFn } from './handleBeforeAllHooks';
-import { executeBeforeAllHook } from './beforeAllExecutor';
-import { executeAfterAllHook } from './afterAllExecutor';
+import getBeforeAllHookHandler from './handleBeforeAllHooks';
 import {
 	HookConfig,
 	MemoizedFns,
 	UserContext,
-	GraphQLData,
+	GraphQLResult,
 	SourceHookConfig,
 	StateApi,
 	AfterSourceHookFunctionPayload,
 	BeforeSourceHookFunctionPayload,
 	PLUGIN_HOOKS_ERROR_CODES,
+	type BeforeAllHookFunctionPayload,
+	type AfterAllHookFunctionPayload,
+	UpdateContextFn,
 } from './types';
 import getBeforeSourceHookHandler from './handleBeforeSourceHooks';
 import type { YogaLogger, Plugin, YogaInitialContext } from 'graphql-yoga';
@@ -122,44 +123,60 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				 */
 				if (beforeAllHookHandler) {
 					try {
-						await executeBeforeAllHook(beforeAllHookHandler, {
-							params,
-							request,
-							body,
-							headers,
-							secrets,
-							state,
-							logger,
+						const payload: BeforeAllHookFunctionPayload = {
+							context: { params, request, body, headers, secrets, state, logger },
 							document,
-							updateContext,
-							setResultAndStopExecution,
+						};
+						await beforeAllHookHandler({ payload, updateContext });
+					} catch (err: unknown) {
+						setResultAndStopExecution({
+							errors: [
+								new GraphQLError(
+									(err instanceof Error && err.message) || 'Error while executing beforeAll hook',
+									{
+										extensions: {
+											code: PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_BEFORE_ALL,
+										},
+									},
+								),
+							],
 						});
-					} catch {
-						// Error already handled by executeBeforeAllHook, just return to stop execution
-						return {};
 					}
 				}
 
 				if (afterAllHookHandler) {
 					return {
-						onExecuteDone: async ({
-							result,
-						}: {
-							result: { data?: GraphQLData; errors?: GraphQLError[] };
-						}) => {
-							await executeAfterAllHook(afterAllHookHandler, {
-								params,
-								request,
-								body,
-								headers,
-								secrets,
-								state,
-								logger,
-								document,
-								result,
-								setResultAndStopExecution,
-								afterAll: afterAll!,
-							});
+						onExecuteDone: async ({ result }: { result: GraphQLResult }) => {
+							try {
+								// Create payload with the execution result
+								const payload: AfterAllHookFunctionPayload = {
+									context: { params, request, body, headers, secrets, state, logger },
+									document,
+									result, // This is the GraphQL execution result
+								};
+
+								// Execute the afterAll hook and get the response
+								await afterAllHookHandler({ payload, setResultAndStopExecution });
+							} catch (err: unknown) {
+								logger.error('Error in onExecuteDone for afterAll hook:', err);
+
+								// For blocking hooks, throw the error to propagate it to the GraphQL response
+								if (afterAll?.blocking) {
+									setResultAndStopExecution({
+										errors: [
+											new GraphQLError(
+												(err instanceof Error && err.message) ||
+													'Error while executing afterAll hook',
+												{
+													extensions: {
+														code: PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_AFTER_ALL,
+													},
+												},
+											),
+										],
+									});
+								}
+							}
 						},
 					};
 				}
@@ -206,6 +223,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 							sourceName,
 						};
 
+						// Execute hook with callback (consistent with beforeAll pattern)
 						await beforeSourceHookHandler({
 							payload,
 							hookType: 'beforeSource',
@@ -238,6 +256,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 						memoizedFns,
 					});
 					try {
+						// Hook will receive serialized response data and return modifications. Do not pass setResponse to hooks
 						const payload: AfterSourceHookFunctionPayload = {
 							context: {
 								request: context.request,
@@ -249,13 +268,19 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 							document: context.document,
 							sourceName,
 							response,
-							setResponse,
 						};
-						await afterSourceHookHandler({
+
+						// Execute hook and get back modified response (if any)
+						const modifiedResponse = await afterSourceHookHandler({
 							payload,
 							hookType: 'afterSource',
 							sourceName,
 						});
+
+						// Wrapping function handles setting the response
+						if (modifiedResponse) {
+							setResponse(modifiedResponse);
+						}
 					} catch (err: unknown) {
 						throw new GraphQLError(
 							(err instanceof Error && err.message) || 'Error while executing afterSource hook',
