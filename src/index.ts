@@ -206,10 +206,37 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 							sourceName,
 						};
 
+						// Provide callback to update request
+						const updateRequest = (modifications: RequestInit) => {
+							const { headers: newHeaders, ...otherModifications } = modifications;
+
+							// Handle header merging properly
+							if (newHeaders) {
+								const originalHeaders = options.headers || {};
+								let mergedHeaders: Record<string, string> = {};
+
+								// Handle different header formats
+								if (originalHeaders instanceof Headers) {
+									originalHeaders.forEach((value, key) => {
+										mergedHeaders[key] = value;
+									});
+								} else if (originalHeaders && typeof originalHeaders === 'object') {
+									mergedHeaders = { ...(originalHeaders as Record<string, string>) };
+								}
+								// Merge new headers
+								Object.assign(mergedHeaders, newHeaders);
+								options.headers = mergedHeaders;
+							}
+							// Apply other modifications (including body with modified query)
+							Object.assign(options, otherModifications);
+						};
+
+						// Execute hook with callback (consistent with beforeAll pattern)
 						await beforeSourceHookHandler({
 							payload,
 							hookType: 'beforeSource',
 							sourceName,
+							updateRequest,
 						});
 					} catch (err: unknown) {
 						throw new GraphQLError(

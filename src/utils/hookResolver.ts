@@ -57,6 +57,7 @@ export interface SourceHookExecConfig {
 	payload: BeforeSourceHookFunctionPayload | AfterSourceHookFunctionPayload;
 	hookType: 'beforeSource' | 'afterSource';
 	sourceName: string;
+	updateRequest?: (modifications: RequestInit) => void; // Optional callback for beforeSource
 }
 
 async function getHookFunction(

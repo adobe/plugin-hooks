@@ -28,9 +28,9 @@ export interface BeforeSourceHookBuildConfig {
  * @param fnBuildConfig Build configuration.
  */
 const getBeforeSourceHookHandler = (fnBuildConfig: BeforeSourceHookBuildConfig) => {
-	return async (fnExecConfig: SourceHookExecConfig) => {
+	return async (fnExecConfig: SourceHookExecConfig): Promise<void> => {
 		const { baseDir, logger, beforeSource, memoizedFns } = fnBuildConfig;
-		const { payload, sourceName } = fnExecConfig;
+		const { payload, sourceName, updateRequest } = fnExecConfig;
 
 		const beforeSourceHooks = beforeSource || [];
 
@@ -65,9 +65,24 @@ const getBeforeSourceHookHandler = (fnBuildConfig: BeforeSourceHookBuildConfig) 
 			if (hookFn) {
 				try {
 					const hooksResponse = await hookFn(payload);
+					if (!hooksResponse) {
+						continue;
+					}
 					if (hookConfig.blocking) {
 						if (hooksResponse.status.toUpperCase() === HookStatus.ERROR) {
 							throw new Error(hooksResponse.message);
+						}
+
+						// Handle request modification from hook data using callback pattern (like beforeAll)
+						if (hooksResponse.data?.request) {
+							// Use callback to apply modifications (consistent with beforeAll pattern)
+							if (updateRequest) {
+								updateRequest(hooksResponse.data.request);
+							} else {
+								logger.warn(
+									'beforeSource hook returned request modifications but no updateRequest callback provided',
+								);
+							}
 						}
 					}
 				} catch (err: unknown) {
