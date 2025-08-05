@@ -12,13 +12,7 @@ governing permissions and limitations under the License.
 
 import { GraphQLError } from 'graphql/error';
 import getAfterAllHookHandler from './handleAfterAllHooks';
-import type {
-	HookConfig,
-	GraphQLData,
-	GraphQLError as GraphQLErrorType,
-	GraphQLResult,
-	StateApi,
-} from './types';
+import type { HookConfig, GraphQLResult, StateApi } from './types';
 import type { YogaLogger, GraphQLParams } from 'graphql-yoga';
 import { PLUGIN_HOOKS_ERROR_CODES } from './errors';
 
@@ -31,7 +25,7 @@ export interface AfterAllExecutionContext {
 	state: StateApi;
 	logger: YogaLogger;
 	document: unknown;
-	result: { data?: GraphQLData; errors?: GraphQLErrorType[] };
+	result: GraphQLResult;
 	setResultAndStopExecution: (result: GraphQLResult) => void;
 	afterAll: HookConfig;
 }
@@ -77,6 +71,7 @@ export async function executeAfterAllHook(
 			setResultAndStopExecution({
 				data: hookResponse.data.result.data || result.data,
 				errors: hookResponse.data.result.errors || result.errors,
+				extensions: hookResponse.data.result.extensions || result.extensions,
 			});
 		}
 	} catch (err: unknown) {

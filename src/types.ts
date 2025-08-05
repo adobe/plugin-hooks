@@ -23,6 +23,7 @@ export type GraphQLData = ExecutionResult['data'];
 export type GraphQLResult = {
 	data?: GraphQLData;
 	errors?: GraphQLError[];
+	extensions?: Record<string, unknown>;
 };
 
 /**

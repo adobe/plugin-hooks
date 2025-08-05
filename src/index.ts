@@ -19,7 +19,7 @@ import {
 	HookConfig,
 	MemoizedFns,
 	UserContext,
-	GraphQLData,
+	GraphQLResult,
 	SourceHookConfig,
 	StateApi,
 	AfterSourceHookFunctionPayload,
@@ -143,11 +143,7 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 
 				if (afterAllHookHandler) {
 					return {
-						onExecuteDone: async ({
-							result,
-						}: {
-							result: { data?: GraphQLData; errors?: GraphQLError[] };
-						}) => {
+						onExecuteDone: async ({ result }: { result: GraphQLResult }) => {
 							await executeAfterAllHook(afterAllHookHandler, {
 								params,
 								request,
