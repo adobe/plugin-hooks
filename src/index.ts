@@ -12,9 +12,7 @@ governing permissions and limitations under the License.
 
 import { GraphQLError } from 'graphql';
 import getAfterAllHookHandler from './handleAfterAllHooks';
-import getBeforeAllHookHandler, { UpdateContextFn } from './handleBeforeAllHooks';
-import { executeBeforeAllHook } from './beforeAllExecutor';
-import { executeAfterAllHook } from './afterAllExecutor';
+import getBeforeAllHookHandler from './handleBeforeAllHooks';
 import {
 	HookConfig,
 	MemoizedFns,
@@ -25,7 +23,9 @@ import {
 	AfterSourceHookFunctionPayload,
 	BeforeSourceHookFunctionPayload,
 	PLUGIN_HOOKS_ERROR_CODES,
-	UpdateRequestFn,
+	type BeforeAllHookFunctionPayload,
+	type AfterAllHookFunctionPayload,
+	UpdateContextFn,
 } from './types';
 import getBeforeSourceHookHandler from './handleBeforeSourceHooks';
 import type { YogaLogger, Plugin, YogaInitialContext } from 'graphql-yoga';
@@ -123,40 +123,60 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 				 */
 				if (beforeAllHookHandler) {
 					try {
-						await executeBeforeAllHook(beforeAllHookHandler, {
-							params,
-							request,
-							body,
-							headers,
-							secrets,
-							state,
-							logger,
+						const payload: BeforeAllHookFunctionPayload = {
+							context: { params, request, body, headers, secrets, state, logger },
 							document,
-							updateContext,
-							setResultAndStopExecution,
+						};
+						await beforeAllHookHandler({ payload, updateContext });
+					} catch (err: unknown) {
+						setResultAndStopExecution({
+							errors: [
+								new GraphQLError(
+									(err instanceof Error && err.message) || 'Error while executing beforeAll hook',
+									{
+										extensions: {
+											code: PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_BEFORE_ALL,
+										},
+									},
+								),
+							],
 						});
-					} catch {
-						// Error already handled by executeBeforeAllHook, just return to stop execution
-						return {};
 					}
 				}
 
 				if (afterAllHookHandler) {
 					return {
 						onExecuteDone: async ({ result }: { result: GraphQLResult }) => {
-							await executeAfterAllHook(afterAllHookHandler, {
-								params,
-								request,
-								body,
-								headers,
-								secrets,
-								state,
-								logger,
-								document,
-								result,
-								setResultAndStopExecution,
-								afterAll: afterAll!,
-							});
+							try {
+								// Create payload with the execution result
+								const payload: AfterAllHookFunctionPayload = {
+									context: { params, request, body, headers, secrets, state, logger },
+									document,
+									result, // This is the GraphQL execution result
+								};
+
+								// Execute the afterAll hook and get the response
+								await afterAllHookHandler({ payload, setResultAndStopExecution });
+							} catch (err: unknown) {
+								logger.error('Error in onExecuteDone for afterAll hook:', err);
+
+								// For blocking hooks, throw the error to propagate it to the GraphQL response
+								if (afterAll?.blocking) {
+									setResultAndStopExecution({
+										errors: [
+											new GraphQLError(
+												(err instanceof Error && err.message) ||
+													'Error while executing afterAll hook',
+												{
+													extensions: {
+														code: PLUGIN_HOOKS_ERROR_CODES.ERROR_PLUGIN_HOOKS_AFTER_ALL,
+													},
+												},
+											),
+										],
+									});
+								}
+							}
 						},
 					};
 				}
@@ -203,29 +223,11 @@ export default async function hooksPlugin(config: PluginConfig): Promise<HooksPl
 							sourceName,
 						};
 
-						// Provide callback to update request
-						const updateRequest: UpdateRequestFn = (modifications: RequestInit) => {
-							const { headers: newHeaders, ...otherModifications } = modifications;
-							// Handle header merging
-							if (newHeaders) {
-								const originalHeaders = options.headers || {};
-								if (originalHeaders instanceof Headers) {
-									const headersObj = Object.fromEntries(originalHeaders.entries());
-									options.headers = { ...headersObj, ...newHeaders };
-								} else {
-									options.headers = { ...originalHeaders, ...newHeaders };
-								}
-							}
-							// Apply other modifications
-							Object.assign(options, otherModifications);
-						};
-
 						// Execute hook with callback (consistent with beforeAll pattern)
 						await beforeSourceHookHandler({
 							payload,
 							hookType: 'beforeSource',
 							sourceName,
-							updateRequest,
 						});
 					} catch (err: unknown) {
 						throw new GraphQLError(

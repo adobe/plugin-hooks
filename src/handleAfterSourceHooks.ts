@@ -10,23 +10,30 @@ OF ANY KIND, either express or implied. See the License for the specific languag
 governing permissions and limitations under the License.
 */
 
-import type { YogaLogger } from 'graphql-yoga';
 import {
 	HookFunction,
 	HookStatus,
-	MemoizedFns,
 	HookConfig,
 	AfterSourceHookFunctionPayload,
+	AfterSourceHookResponse,
+	SourceHookExecConfig,
+	HookBuildConfig,
 } from './types';
 import { handleHookExecutionError } from './errors';
-import type { SourceHookExecConfig } from './utils/hookResolver';
 import { resolveSourceHookFunction } from './utils/hookResolver';
 
-export interface AfterSourceHookBuildConfig {
-	baseDir: string;
+/**
+ * Configuration required when building/memoizing the handler wrapping the black box hook function.
+ */
+export interface AfterSourceHookBuildConfig extends HookBuildConfig {
 	afterSource?: HookConfig[];
-	logger: YogaLogger;
-	memoizedFns: MemoizedFns;
+}
+
+/**
+ * Configuration required when executing the hook handler.
+ */
+export interface AfterSourceHookExecConfig extends SourceHookExecConfig {
+	payload: AfterSourceHookFunctionPayload;
 }
 
 /**
@@ -34,9 +41,15 @@ export interface AfterSourceHookBuildConfig {
  * @param fnBuildConfig Build configuration.
  */
 const getAfterSourceHookHandler = (fnBuildConfig: AfterSourceHookBuildConfig) => {
-	return async (fnExecConfig: SourceHookExecConfig): Promise<Response | undefined> => {
+	return async (fnExecConfig: AfterSourceHookExecConfig): Promise<Response | undefined> => {
 		const { baseDir, logger, afterSource, memoizedFns } = fnBuildConfig;
-		const { payload, sourceName } = fnExecConfig;
+		const {
+			sourceName,
+			payload,
+		}: {
+			sourceName: string;
+			payload: AfterSourceHookFunctionPayload;
+		} = fnExecConfig;
 
 		const afterSourceHooks = afterSource || [];
 		let modifiedResponse: Response | undefined = undefined;
@@ -71,7 +84,7 @@ const getAfterSourceHookHandler = (fnBuildConfig: AfterSourceHookBuildConfig) =>
 
 			if (hookFn) {
 				try {
-					const hooksResponse = await hookFn(payload);
+					const hooksResponse: AfterSourceHookResponse = await hookFn(payload);
 					if (!hooksResponse) {
 						continue;
 					}
@@ -80,31 +93,37 @@ const getAfterSourceHookHandler = (fnBuildConfig: AfterSourceHookBuildConfig) =>
 							throw new Error(hooksResponse.message);
 						}
 						// Handle response modification from hook data
-						if (hooksResponse.data?.response) {
-							const modifiedResponseData = hooksResponse.data.response;
-							const afterSourcePayload = payload as AfterSourceHookFunctionPayload;
+						const originalResponse = payload.response;
+						const newResponse = hooksResponse.data?.response;
+						if (originalResponse && newResponse) {
+							const body = 'body' in newResponse ? newResponse.body : payload?.response?.body;
 
-							// Get original body if hook didn't provide one
-							let bodyToUse = modifiedResponseData.body;
-							if (!bodyToUse && afterSourcePayload.response) {
-								// Clone original response to read its body without consuming the original
-								const originalResponseClone = afterSourcePayload.response.clone();
-								bodyToUse = await originalResponseClone.text();
+							// Handle header merging
+							const originalHeaders = originalResponse.headers || {};
+							const mergedHeaders = new Headers(originalHeaders);
+
+							let newHeaders = newResponse.headers;
+
+							// Normalize headers
+							if (newHeaders instanceof Headers) {
+								newHeaders = Object.fromEntries(newHeaders.entries());
 							}
 
-							// Fallback to error message only if no original body exists
-							if (!bodyToUse) {
-								bodyToUse = '{"errors":[{"message":"Hook did not return response body"}]}';
+							// Merge headers
+							if (newHeaders) {
+								Object.entries(newHeaders).forEach(([key, value]) => {
+									if (value || typeof value === 'boolean') {
+										mergedHeaders.set(key, value.toString());
+									}
+								});
 							}
 
-							modifiedResponse = new Response(bodyToUse, {
-								status: modifiedResponseData.status || afterSourcePayload.response?.status || 200,
-								statusText:
-									modifiedResponseData.statusText ||
-									afterSourcePayload.response?.statusText ||
-									'OK',
-								headers: modifiedResponseData.headers || {},
+							modifiedResponse = new Response(body, {
+								status: newResponse.status || originalResponse.status,
+								statusText: newResponse.statusText || originalResponse.statusText,
+								headers: mergedHeaders,
 							});
+							payload.response = modifiedResponse;
 						}
 					}
 				} catch (err: unknown) {

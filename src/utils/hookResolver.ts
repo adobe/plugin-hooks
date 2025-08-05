@@ -11,14 +11,7 @@ governing permissions and limitations under the License.
 */
 
 import type { YogaLogger } from 'graphql-yoga';
-import type {
-	AfterSourceHookFunctionPayload,
-	BeforeSourceHookFunctionPayload,
-	HookConfig,
-	HookFunction,
-	MemoizedFns,
-	UpdateRequestFn,
-} from '../types';
+import type { HookConfig, HookFunction, MemoizedFns } from '../types';
 //@ts-expect-error The dynamic import is a workaround for cjs
 import importFn from '../dynamicImport';
 import {
@@ -49,16 +42,6 @@ export interface SourceHookResolverConfig {
 	baseDir: string;
 	logger: YogaLogger;
 	memoizedFns: MemoizedFns;
-}
-
-/**
- * Configuration for source hook execution
- */
-export interface SourceHookExecConfig {
-	payload: BeforeSourceHookFunctionPayload | AfterSourceHookFunctionPayload;
-	hookType: 'beforeSource' | 'afterSource';
-	sourceName: string;
-	updateRequest?: UpdateRequestFn; // Optional callback for beforeSource
 }
 
 async function getHookFunction(
