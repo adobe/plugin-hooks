@@ -6,3 +6,7 @@ yarn.lock
 
 # Exclude .npmrc file
 .npmrc
+
+# Exclude types
+dist/*
+!dist/index.d.ts

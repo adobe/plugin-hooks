@@ -13,22 +13,24 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-
       - name: Setup node
         uses: actions/setup-node@v3
         with:
           node-version: 18
-
-      - name: NPM install
+      - name: Install
         run: yarn install --frozen-lockfile
-
+      - name: Lint
+        run: yarn lint
+      - name: Test
+        run: yarn test:ci
+      - name: Build
+        run: yarn build
       - name: Get version from package.json
         id: get_version
         run: | 
           version=$(jq -r '.version' package.json)
           echo "version=$version" >> $GITHUB_OUTPUT
           echo "Read version $version from package.json"
-
       - name: Verify version corresponds to branch
         id: verify_version
         run: |
@@ -61,7 +63,6 @@ jobs:
           
           echo "version_tag=$version_tag" >> $GITHUB_OUTPUT;
           echo "Will publish version ${{ steps.get_version.outputs.version }} as $version_tag"
-
       - name: Publish to npm
         if: ${{ steps.verify_version.outputs.version_tag != '' }}
         uses: JS-DevTools/npm-publish@v1
