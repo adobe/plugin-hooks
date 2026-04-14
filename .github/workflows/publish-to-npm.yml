@@ -65,8 +65,9 @@ jobs:
           echo "Will publish version ${{ steps.get_version.outputs.version }} as $version_tag"
       - name: Publish to npm
         if: ${{ steps.verify_version.outputs.version_tag != '' }}
-        uses: JS-DevTools/npm-publish@v1
+        uses: JS-DevTools/npm-publish@v4
         with:
           token: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
           access: 'public'
+          provenance: true
           tag: ${{ steps.verify_version.outputs.version_tag }}
